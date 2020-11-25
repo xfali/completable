@@ -3,7 +3,7 @@
 // @version V1.0
 // Description:
 
-package executor
+package completable
 
 import "github.com/xfali/executor"
 
