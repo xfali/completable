@@ -56,14 +56,14 @@ type CompletionStage interface {
 	// Param：other，当该CompletionStage也返回后进行消耗
 	// Param：参数函数，acceptFunc func(TYPE1, TYPE2) 参数为两个CompletionStage的结果
 	// Return：新的CompletionStage
-	ThenAcceptBoth(other CompletionStage, acceptFunc func(a, b interface{})) CompletionStage
+	ThenAcceptBoth(other CompletionStage, acceptFunc interface{}) CompletionStage
 
 	// 当阶段正常完成时执行参数函数：结合两个CompletionStage的结果，进行消耗
 	// Param：other，当该CompletionStage也返回后进行消耗
 	// Param：参数函数，acceptFunc func(TYPE1, TYPE2) 参数为两个CompletionStage的结果
 	// Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 	// Return：新的CompletionStage
-	ThenAcceptBothAsync(other CompletionStage, acceptFunc func(a, b interface{}), executor ...executor.Executor) CompletionStage
+	ThenAcceptBothAsync(other CompletionStage, acceptFunc interface{}, executor ...executor.Executor) CompletionStage
 
 	// 当阶段正常完成时执行参数函数：两个CompletionStage都完成后执行
 	// Param：other，当该CompletionStage也完成后执行参数函数
@@ -154,4 +154,6 @@ type CompletionStage interface {
 	// Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 	// Return：新的CompletionStage
 	HandleAsync(f interface{}, executor ...executor.Executor) CompletionStage
+
+	Future
 }
