@@ -9,40 +9,63 @@ import (
 	"errors"
 	"reflect"
 	"runtime"
-	"sync/atomic"
 	"time"
 )
 
 type ValueHandler struct {
 	t         reflect.Type
-	valueChan chan reflect.Value
+	valueChan chan ValueOrError
 	isErr     int32
 }
 
-type vhError struct {
+var timeoutError = errors.New("Timeout. ")
+var gTimeoutError = newTimeoutError()
+
+type Nil struct{}
+var gNil = &Nil{}
+var NilType = reflect.TypeOf(gNil)
+var NilValue = reflect.ValueOf(gNil)
+
+type ValueOrError interface {
+	GetValue() reflect.Value
+	GetError() error
+	IsTimeout() bool
+}
+
+type vOrErr struct {
+	v   reflect.Value
 	err error
 }
 
-func newVhError(err error) reflect.Value {
-	ret := vhError{
-		err: err,
+func newTimeoutError() *vOrErr {
+	return &vOrErr{
+		err: timeoutError,
 	}
-	return reflect.ValueOf(&ret)
 }
 
-var vhErrorType = reflect.TypeOf((*vhError)())
+func (ve vOrErr) GetValue() reflect.Value {
+	return ve.v
+}
+
+func (ve vOrErr) GetError() error {
+	return ve.err
+}
+
+func (ve vOrErr) IsTimeout() bool {
+	return ve.err == timeoutError
+}
 
 func NewAsyncHanlder(t reflect.Type) *ValueHandler {
 	return &ValueHandler{
 		t:         t,
-		valueChan: make(chan reflect.Value),
+		valueChan: make(chan ValueOrError),
 	}
 }
 
 func NewSyncValue(t reflect.Type) *ValueHandler {
 	return &ValueHandler{
 		t:         t,
-		valueChan: make(chan reflect.Value, 1),
+		valueChan: make(chan ValueOrError, 1),
 	}
 }
 
@@ -50,32 +73,23 @@ func (vh *ValueHandler) SetValue(v reflect.Value) error {
 	if v.Type() != vh.t {
 		return errors.New("Type not match. ")
 	}
-	vh.valueChan <- v
+	vh.valueChan <- vOrErr{
+		v: v,
+	}
 	return nil
 }
 
-func (vh *ValueHandler) IsError() bool {
-	return atomic.LoadInt32(&vh.isErr) == 1
-}
-
 func (vh *ValueHandler) SetError(err error) {
-	atomic.StoreInt32(&vh.isErr, 1)
-	vh.valueChan <- newVhError(err)
-}
-
-func (vh *ValueHandler) GetError() error {
-	if !vh.IsError() {
-		return nil
+	vh.valueChan <- vOrErr{
+		err: err,
 	}
-	v := <-vh.valueChan
-	return v.Interface().(*vhError).err
 }
 
 func (vh *ValueHandler) Type() reflect.Type {
 	return vh.t
 }
 
-func (vh *ValueHandler) GetValue(timeout time.Duration) reflect.Value {
+func (vh *ValueHandler) Get(timeout time.Duration) ValueOrError {
 	if timeout <= 0 {
 		return <-vh.valueChan
 	} else {
@@ -83,12 +97,12 @@ func (vh *ValueHandler) GetValue(timeout time.Duration) reflect.Value {
 		case v := <-vh.valueChan:
 			return v
 		case <-time.After(timeout):
-			return reflect.Value{}
+			return newTimeoutError()
 		}
 	}
 }
 
-func (vh *ValueHandler) SelectValue(other *ValueHandler, timeout time.Duration) reflect.Value {
+func (vh *ValueHandler) SelectValue(other *ValueHandler, timeout time.Duration) ValueOrError {
 	if timeout <= 0 {
 		select {
 		case v := <-vh.valueChan:
@@ -103,12 +117,12 @@ func (vh *ValueHandler) SelectValue(other *ValueHandler, timeout time.Duration) 
 		case v := <-other.valueChan:
 			return v
 		case <-time.After(timeout):
-			return reflect.Value{}
+			return newTimeoutError()
 		}
 	}
 }
 
-func (vh *ValueHandler) BothValue(other *ValueHandler, timeout time.Duration) (v1, v2 reflect.Value) {
+func (vh *ValueHandler) BothValue(other *ValueHandler, timeout time.Duration) (v1, v2 ValueOrError) {
 	if timeout <= 0 {
 		s1, s2 := false, false
 		for {
@@ -117,6 +131,10 @@ func (vh *ValueHandler) BothValue(other *ValueHandler, timeout time.Duration) (v
 				case v1 = <-vh.valueChan:
 					s1 = true
 				default:
+					if s2 {
+						v1 = <-vh.valueChan
+						return
+					}
 				}
 			}
 			if !s2 {
@@ -124,6 +142,10 @@ func (vh *ValueHandler) BothValue(other *ValueHandler, timeout time.Duration) (v
 				case v2 = <-other.valueChan:
 					s2 = true
 				default:
+					if s1 {
+						v2 = <-other.valueChan
+						return
+					}
 				}
 			}
 			if s1 && s2 {
@@ -141,6 +163,7 @@ func (vh *ValueHandler) BothValue(other *ValueHandler, timeout time.Duration) (v
 				case v1 = <-vh.valueChan:
 					s1 = true
 				case <-timer.C:
+					v1 = newTimeoutError()
 					return
 				default:
 				}
@@ -150,6 +173,7 @@ func (vh *ValueHandler) BothValue(other *ValueHandler, timeout time.Duration) (v
 				case v2 = <-other.valueChan:
 					s2 = true
 				case <-timer.C:
+					v2 = newTimeoutError()
 					return
 				default:
 				}
