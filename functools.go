@@ -97,6 +97,28 @@ func CheckComposeFunction(fn reflect.Type, vType reflect.Type) error {
 	return nil
 }
 
+func CheckHandleFunction(fn reflect.Type, vType reflect.Type) error {
+	if fn.Kind() != reflect.Func {
+		return errors.New("Param is not a function. ")
+	}
+	if fn.NumIn() != 2 || fn.NumOut() != 1 {
+		return errors.New("Type must be f func(o TYPE1, err interface{}) TYPE2. number not match. ")
+	}
+	inType := fn.In(0)
+	if inType != vType {
+		return errors.New("Type must be f func(o TYPE) CompletionStage. in[0] not match. ")
+	}
+
+	return nil
+}
+
+func CheckPtr(v reflect.Type) error {
+	if v.Kind() != reflect.Ptr {
+		return errors.New("Not a pointer. ")
+	}
+	return nil
+}
+
 func RunApply(fn reflect.Value, v reflect.Value) reflect.Value {
 	return fn.Call([]reflect.Value{v})[0]
 }
@@ -115,4 +137,8 @@ func RunAcceptBoth(fn reflect.Value, v1, v2 reflect.Value) {
 
 func RunCompose(fn reflect.Value, v reflect.Value) reflect.Value {
 	return fn.Call([]reflect.Value{v})[0]
+}
+
+func RunHandle(fn reflect.Value, v1, v2 reflect.Value) reflect.Value {
+	return fn.Call([]reflect.Value{v1, v2})[0]
 }
