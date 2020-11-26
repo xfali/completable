@@ -33,16 +33,34 @@ type ValueOrError interface {
 	// 获得panic
 	GetPanic() interface{}
 
-	// 是否操作
+	// 返回clone对象
+	Clone() ValueOrError
+
+	// 是否正常返回值
+	HaveValue() bool
+
+	// 是否存在错误
+	HaveError() bool
+
+	// 是否panic
+	HavePanic() bool
+
+	// 是否被context控制提前结束
 	IsDone() bool
 }
 
 type ValueHandler interface {
+	// 设置ValueOrError，如果已经存在值或者错误则返回失败
+	SetValueOrError(v ValueOrError) error
+
 	// 设置值，如果已经存在值或者错误则返回失败
 	SetValue(v reflect.Value) error
 
 	// 设置错误，如果已经存在值或者错误则panic
 	SetError(err error)
+
+	// 设置panic，如果已经存在值或者错误则panic
+	SetPanic(o interface{})
 
 	// 获得value的type
 	Type() reflect.Type
@@ -111,6 +129,27 @@ func (ve vOrErr) GetPanic() interface{} {
 	return ve.v
 }
 
+func (ve vOrErr) Clone() ValueOrError {
+	return vOrErr{
+		v:      ve.v,
+		status: ve.status,
+	}
+}
+
+func (ve vOrErr) HaveValue() bool {
+	return ve.status == vOrErrNormal
+}
+
+// 是否存在错误
+func (ve vOrErr) HaveError() bool {
+	return ve.status == vOrErrError
+}
+
+// 是否panic
+func (ve vOrErr) HavePanic() bool {
+	return ve.status == vOrErrPanic
+}
+
 func (ve vOrErr) IsDone() bool {
 	return ve.status == vOrErrDone
 }
@@ -126,6 +165,15 @@ func NewSyncHandler(t reflect.Type) *defaultValueHandler {
 	return &defaultValueHandler{
 		t:         t,
 		valueChan: make(chan ValueOrError, 1),
+	}
+}
+
+func (vh *defaultValueHandler) SetValueOrError(v ValueOrError) error {
+	if len(vh.valueChan) == 0 {
+		vh.valueChan <- v
+		return nil
+	} else {
+		return errors.New("Already have a value. ")
 	}
 }
 
@@ -149,6 +197,17 @@ func (vh *defaultValueHandler) SetError(err error) {
 		vh.valueChan <- vOrErr{
 			v:      err,
 			status: vOrErrError,
+		}
+	} else {
+		panic("Already have a value")
+	}
+}
+
+func (vh *defaultValueHandler) SetPanic(o interface{}) {
+	if len(vh.valueChan) == 0 {
+		vh.valueChan <- vOrErr{
+			v:      o,
+			status: vOrErrPanic,
 		}
 	} else {
 		panic("Already have a value")

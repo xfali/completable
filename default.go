@@ -72,7 +72,7 @@ func newCfWithCancel(pCtx context.Context, cancelFunc context.CancelFunc, v *def
 // 当阶段正常完成时执行参数函数：进行类型变换
 // Param：参数函数：f func(o TYPE1) TYPE2参数为上阶段结果，返回为处理后的返回值
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenApply(applyFunc interface{}) CompletionStage {
+func (cf *CompletableFuture) ThenApply(applyFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	cf.checkValue()
 
@@ -82,23 +82,26 @@ func (cf *CompletableFuture) ThenApply(applyFunc interface{}) CompletionStage {
 	}
 
 	vh := NewSyncHandler(fnValue.Type().Out(0))
+	retCf = newCf(cf.ctx, vh)
+	defer handlePanic(vh)
+
 	ve := cf.getValue(nil)
-	if ve.GetError() != nil {
-		vh.SetError(ve.GetError())
-		return newCf(cf.ctx, vh)
+	if !ve.HaveValue() {
+		vh.SetValueOrError(ve.Clone())
+		return
 	}
 
 	err := vh.SetValue(RunApply(fnValue, ve.GetValue()))
 	if err != nil {
 		panic(err)
 	}
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数
 // Param：参数函数：f func(o TYPE1) TYPE2参数为上阶段结果，返回为处理后的返回值
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenApplyAsync(applyFunc interface{}, executor ...executor.Executor) CompletionStage {
+func (cf *CompletableFuture) ThenApplyAsync(applyFunc interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(applyFunc)
@@ -107,16 +110,17 @@ func (cf *CompletableFuture) ThenApplyAsync(applyFunc interface{}, executor ...e
 	}
 
 	vh := NewAsyncHandler(fnValue.Type().Out(0))
+	retCf = newCf(cf.ctx, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
+		defer handlePanic(vh)
 		defer cf.setDone()
-		ev := cf.getValue(nil)
-		err := ev.GetError()
-		if err != nil {
-			vh.SetError(err)
+		ve := cf.getValue(nil)
+		if !ve.HaveValue() {
+			vh.SetValueOrError(ve.Clone())
 			return
 		}
-		err = vh.SetValue(RunApply(fnValue, ev.GetValue()))
+		err := vh.SetValue(RunApply(fnValue, ve.GetValue()))
 		if err != nil {
 			vh.SetError(err)
 		}
@@ -124,14 +128,13 @@ func (cf *CompletableFuture) ThenApplyAsync(applyFunc interface{}, executor ...e
 	if err != nil {
 		panic(err)
 	}
-
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：结果消耗
 // Param：参数函数：f func(o TYPE)参数为上阶段结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenAccept(acceptFunc interface{}) CompletionStage {
+func (cf *CompletableFuture) ThenAccept(acceptFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	cf.checkValue()
 
@@ -141,22 +144,22 @@ func (cf *CompletableFuture) ThenAccept(acceptFunc interface{}) CompletionStage 
 	}
 
 	vh := NewSyncHandler(NilType)
-	ev := cf.getValue(nil)
-	err := ev.GetError()
-	if err != nil {
-		vh.SetError(err)
-		return newCf(cf.ctx, vh)
+	retCf = newCf(cf.ctx, vh)
+	ve := cf.getValue(nil)
+	if !ve.HaveValue() {
+		vh.SetValueOrError(ve.Clone())
+		return
 	}
 
-	RunAccept(fnValue, ev.GetValue())
+	RunAccept(fnValue, ve.GetValue())
 	vh.SetValue(NilValue)
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：结果消耗
 // Param：参数函数：f func(o TYPE)参数为上阶段结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenAcceptAsync(acceptFunc interface{}, executor ...executor.Executor) CompletionStage {
+func (cf *CompletableFuture) ThenAcceptAsync(acceptFunc interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(acceptFunc)
@@ -165,59 +168,61 @@ func (cf *CompletableFuture) ThenAcceptAsync(acceptFunc interface{}, executor ..
 	}
 
 	vh := NewAsyncHandler(NilType)
+	retCf = newCf(cf.ctx, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
+		defer handlePanic(vh)
 		defer cf.setDone()
-		ev := cf.getValue(nil)
-		err := ev.GetError()
-		if err != nil {
-			vh.SetError(err)
+		ve := cf.getValue(nil)
+		if !ve.HaveValue() {
+			vh.SetValueOrError(ve.Clone())
 			return
 		}
-		RunAccept(fnValue, ev.GetValue())
+		RunAccept(fnValue, ve.GetValue())
 		vh.SetValue(NilValue)
 	})
 	if err != nil {
 		panic(err)
 	}
-	return newCf(cf.ctx, nil)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：不关心上一步结果
 // Param：参数函数: f func()
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenRun(runnable func()) CompletionStage {
+func (cf *CompletableFuture) ThenRun(runnable func()) (retCf CompletionStage) {
 	defer cf.setDone()
 	cf.checkValue()
 
 	vh := NewSyncHandler(NilType)
-	ev := cf.getValue(nil)
-	err := ev.GetError()
-	if err != nil {
-		vh.SetError(err)
-		return newCf(cf.ctx, vh)
+	retCf = newCf(cf.ctx, vh)
+	ve := cf.getValue(nil)
+	if !ve.HaveValue() {
+		vh.SetValueOrError(ve.Clone())
+		return
 	}
 
 	runnable()
 	vh.SetValue(NilValue)
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：不关心上一步结果
 // Param：参数函数: f func()
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenRunAsync(runnable func(), executor ...executor.Executor) CompletionStage {
+func (cf *CompletableFuture) ThenRunAsync(runnable func(), executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 
 	vh := NewAsyncHandler(NilType)
+	retCf = newCf(cf.ctx, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
+		defer handlePanic(vh)
 		defer cf.setDone()
-		ev := cf.getValue(nil)
-		err := ev.GetError()
-		if err != nil {
-			vh.SetError(err)
+		ve := cf.getValue(nil)
+		if !ve.HaveValue() {
+			vh.SetValueOrError(ve.Clone())
 			return
 		}
 		runnable()
@@ -226,14 +231,14 @@ func (cf *CompletableFuture) ThenRunAsync(runnable func(), executor ...executor.
 	if err != nil {
 		panic(err)
 	}
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：结合两个CompletionStage的结果，转化后返回
 // Param：other，当该CompletionStage也返回后进行结合转化
 // Param：参数函数，combineFunc func(TYPE1, TYPE2) TYPE3参数为两个CompletionStage的结果，返回转化结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenCombine(other CompletionStage, combineFunc interface{}) CompletionStage {
+func (cf *CompletableFuture) ThenCombine(other CompletionStage, combineFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -248,33 +253,26 @@ func (cf *CompletableFuture) ThenCombine(other CompletionStage, combineFunc inte
 	octx, ocancel := context.WithCancel(ctx)
 
 	vh := NewSyncHandler(fnValue.Type().Out(0))
-	ev1, ev2 := cf.v.BothValue(ocf.v, nil)
-	err := ev1.GetError()
-	if err != nil {
-		vh.SetError(err)
-		return newCfWithCancel(octx, func() {
-			cancel()
-			ocancel()
-		}, vh)
-	}
-
-	err = ev2.GetError()
-	if err != nil {
-		vh.SetError(err)
-		return newCfWithCancel(octx, func() {
-			cancel()
-			ocancel()
-		}, vh)
-	}
-
-	err = vh.SetValue(RunCombine(fnValue, ev1.GetValue(), ev2.GetValue()))
-	if err != nil {
-		panic(err)
-	}
-	return newCfWithCancel(octx, func() {
+	retCf = newCfWithCancel(octx, func() {
 		cancel()
 		ocancel()
 	}, vh)
+	ve1, ve2 := cf.v.BothValue(ocf.v, nil)
+	if !ve1.HaveValue() {
+		vh.SetValueOrError(ve1.Clone())
+		return
+	}
+
+	if !ve2.HaveValue() {
+		vh.SetValueOrError(ve2.Clone())
+		return
+	}
+
+	err := vh.SetValue(RunCombine(fnValue, ve1.GetValue(), ve2.GetValue()))
+	if err != nil {
+		vh.SetError(err)
+	}
+	return
 }
 
 // 当阶段正常完成时执行参数函数：结合两个CompletionStage的结果，转化后返回
@@ -285,7 +283,7 @@ func (cf *CompletableFuture) ThenCombine(other CompletionStage, combineFunc inte
 func (cf *CompletableFuture) ThenCombineAsync(
 	other CompletionStage,
 	combineFunc interface{},
-	executor ...executor.Executor) CompletionStage {
+	executor ...executor.Executor) (retCf CompletionStage) {
 	ocf := convert(other)
 	cf.checkValue()
 	ocf.checkValue()
@@ -299,24 +297,25 @@ func (cf *CompletableFuture) ThenCombineAsync(
 
 	ctx, cancel := context.WithCancel(cf.ctx)
 	octx, ocancel := context.WithCancel(ctx)
-
+	retCf = newCfWithCancel(octx, func() {
+		cancel()
+		ocancel()
+	}, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
 		defer cf.setDone()
-		ev1, ev2 := cf.v.BothValue(ocf.v, nil)
-		err := ev1.GetError()
-		if err != nil {
-			vh.SetError(err)
+		ve1, ve2 := cf.v.BothValue(ocf.v, nil)
+		if !ve1.HaveValue() {
+			vh.SetValueOrError(ve1.Clone())
 			return
 		}
 
-		err = ev2.GetError()
-		if err != nil {
-			vh.SetError(err)
+		if !ve2.HaveValue() {
+			vh.SetValueOrError(ve2.Clone())
 			return
 		}
 
-		err = vh.SetValue(RunCombine(fnValue, ev1.GetValue(), ev2.GetValue()))
+		err := vh.SetValue(RunCombine(fnValue, ve1.GetValue(), ve2.GetValue()))
 		if err != nil {
 			vh.SetError(err)
 		}
@@ -325,17 +324,14 @@ func (cf *CompletableFuture) ThenCombineAsync(
 		panic(err)
 	}
 
-	return newCfWithCancel(octx, func() {
-		cancel()
-		ocancel()
-	}, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：结合两个CompletionStage的结果，进行消耗
 // Param：other，当该CompletionStage也返回后进行消耗
 // Param：参数函数，acceptFunc func(TYPE1, TYPE2) 参数为两个CompletionStage的结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenAcceptBoth(other CompletionStage, acceptFunc interface{}) CompletionStage {
+func (cf *CompletableFuture) ThenAcceptBoth(other CompletionStage, acceptFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -350,31 +346,25 @@ func (cf *CompletableFuture) ThenAcceptBoth(other CompletionStage, acceptFunc in
 	octx, ocancel := context.WithCancel(ctx)
 
 	vh := NewSyncHandler(NilType)
-	ev1, ev2 := cf.v.BothValue(ocf.v, nil)
-	err := ev1.GetError()
-	if err != nil {
-		vh.SetError(err)
-		return newCfWithCancel(octx, func() {
-			cancel()
-			ocancel()
-		}, vh)
-	}
-
-	err = ev2.GetError()
-	if err != nil {
-		vh.SetError(err)
-		return newCfWithCancel(octx, func() {
-			cancel()
-			ocancel()
-		}, vh)
-	}
-
-	RunAcceptBoth(fnValue, ev1.GetValue(), ev2.GetValue())
-	vh.SetValue(NilValue)
-	return newCfWithCancel(octx, func() {
+	retCf = newCfWithCancel(octx, func() {
 		cancel()
 		ocancel()
 	}, vh)
+
+	ve1, ve2 := cf.v.BothValue(ocf.v, nil)
+	if !ve1.HaveValue() {
+		vh.SetValueOrError(ve1.Clone())
+		return
+	}
+
+	if !ve2.HaveValue() {
+		vh.SetValueOrError(ve2.Clone())
+		return
+	}
+
+	RunAcceptBoth(fnValue, ve1.GetValue(), ve2.GetValue())
+	vh.SetValue(NilValue)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：结合两个CompletionStage的结果，进行消耗
@@ -385,7 +375,7 @@ func (cf *CompletableFuture) ThenAcceptBoth(other CompletionStage, acceptFunc in
 func (cf *CompletableFuture) ThenAcceptBothAsync(
 	other CompletionStage,
 	acceptFunc interface{},
-	executor ...executor.Executor) CompletionStage {
+	executor ...executor.Executor) (retCf CompletionStage) {
 	ocf := convert(other)
 	cf.checkValue()
 	ocf.checkValue()
@@ -399,40 +389,39 @@ func (cf *CompletableFuture) ThenAcceptBothAsync(
 	octx, ocancel := context.WithCancel(ctx)
 
 	vh := NewAsyncHandler(NilType)
+	retCf = newCfWithCancel(octx, func() {
+		cancel()
+		ocancel()
+	}, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
 		defer cf.setDone()
-		ev1, ev2 := cf.v.BothValue(ocf.v, nil)
-		err := ev1.GetError()
-		if err != nil {
-			vh.SetError(err)
+		ve1, ve2 := cf.v.BothValue(ocf.v, nil)
+		if !ve1.HaveValue() {
+			vh.SetValueOrError(ve1.Clone())
 			return
 		}
 
-		err = ev2.GetError()
-		if err != nil {
-			vh.SetError(err)
+		if !ve2.HaveValue() {
+			vh.SetValueOrError(ve2.Clone())
 			return
 		}
 
-		RunAcceptBoth(fnValue, ev1.GetValue(), ev2.GetValue())
+		RunAcceptBoth(fnValue, ve1.GetValue(), ve2.GetValue())
 		vh.SetValue(NilValue)
 	})
 	if err != nil {
 		panic(err)
 	}
 
-	return newCfWithCancel(octx, func() {
-		cancel()
-		ocancel()
-	}, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：两个CompletionStage都完成后执行
 // Param：other，当该CompletionStage也完成后执行参数函数
 // Param：参数函数 runnable func()
 // Return：新的CompletionStage
-func (cf *CompletableFuture) RunAfterBoth(other CompletionStage, runnable func()) CompletionStage {
+func (cf *CompletableFuture) RunAfterBoth(other CompletionStage, runnable func()) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -442,30 +431,24 @@ func (cf *CompletableFuture) RunAfterBoth(other CompletionStage, runnable func()
 	octx, ocancel := context.WithCancel(ctx)
 
 	vh := NewSyncHandler(NilType)
-	ev1, ev2 := cf.v.BothValue(ocf.v, nil)
-	err := ev1.GetError()
-	if err != nil {
-		vh.SetError(err)
-		return newCfWithCancel(octx, func() {
-			cancel()
-			ocancel()
-		}, vh)
+	retCf = newCfWithCancel(octx, func() {
+		cancel()
+		ocancel()
+	}, vh)
+
+	ve1, ve2 := cf.v.BothValue(ocf.v, nil)
+	if !ve1.HaveValue() {
+		vh.SetValueOrError(ve1.Clone())
+		return
 	}
-	err = ev2.GetError()
-	if err != nil {
-		vh.SetError(err)
-		return newCfWithCancel(octx, func() {
-			cancel()
-			ocancel()
-		}, vh)
+	if !ve2.HaveValue() {
+		vh.SetValueOrError(ve1.Clone())
+		return
 	}
 	runnable()
 	vh.SetValue(NilValue)
 
-	return newCfWithCancel(octx, func() {
-		cancel()
-		ocancel()
-	}, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：两个CompletionStage都完成后执行
@@ -476,7 +459,7 @@ func (cf *CompletableFuture) RunAfterBoth(other CompletionStage, runnable func()
 func (cf *CompletableFuture) RunAfterBothAsync(
 	other CompletionStage,
 	runnable func(),
-	executor ...executor.Executor) CompletionStage {
+	executor ...executor.Executor) (retCf CompletionStage) {
 	ocf := convert(other)
 	cf.checkValue()
 	ocf.checkValue()
@@ -484,18 +467,22 @@ func (cf *CompletableFuture) RunAfterBothAsync(
 	ctx, cancel := context.WithCancel(cf.ctx)
 	octx, ocancel := context.WithCancel(ctx)
 	vh := NewAsyncHandler(NilType)
+	retCf = newCfWithCancel(octx, func() {
+		cancel()
+		ocancel()
+	}, vh)
+
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
+		defer handlePanic(vh)
 		defer cf.setDone()
-		ev1, ev2 := cf.v.BothValue(ocf.v, nil)
-		err := ev1.GetError()
-		if err != nil {
-			vh.SetError(err)
+		ve1, ve2 := cf.v.BothValue(ocf.v, nil)
+		if !ve1.HaveValue() {
+			vh.SetValueOrError(ve1.Clone())
 			return
 		}
-		err = ev2.GetError()
-		if err != nil {
-			vh.SetError(err)
+		if !ve2.HaveValue() {
+			vh.SetValueOrError(ve2.Clone())
 			return
 		}
 		runnable()
@@ -505,17 +492,14 @@ func (cf *CompletableFuture) RunAfterBothAsync(
 		panic(err)
 	}
 
-	return newCfWithCancel(octx, func() {
-		cancel()
-		ocancel()
-	}, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：两个CompletionStage使用先完成的结果进行转化
 // Param：other，与该CompletionStage比较，用先完成的结果进行转化，注意两个CompletionStage的返回结果类型必须相同
 // Param：参数函数 f func(o Type1) Type2参数为先完成的CompletionStage的结果，返回转化结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ApplyToEither(other CompletionStage, applyFunc interface{}) CompletionStage {
+func (cf *CompletableFuture) ApplyToEither(other CompletionStage, applyFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -528,17 +512,18 @@ func (cf *CompletableFuture) ApplyToEither(other CompletionStage, applyFunc inte
 	}
 
 	vh := NewSyncHandler(fnValue.Type().Out(0))
+	retCf = newCf(cf.ctx, vh)
 	ve := cf.v.SelectValue(ocf.v, nil)
-	if ve.GetError() != nil {
-		vh.SetError(ve.GetError())
-		return newCf(cf.ctx, vh)
+	if !ve.HaveValue() {
+		vh.SetValueOrError(ve.Clone())
+		return
 	}
 
 	err := vh.SetValue(RunApply(fnValue, ve.GetValue()))
 	if err != nil {
-		panic(err)
+		vh.SetError(err)
 	}
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：两个CompletionStage使用先完成的结果进行转化
@@ -549,7 +534,7 @@ func (cf *CompletableFuture) ApplyToEither(other CompletionStage, applyFunc inte
 func (cf *CompletableFuture) ApplyToEitherAsync(
 	other CompletionStage,
 	applyFunc interface{},
-	executor ...executor.Executor) CompletionStage {
+	executor ...executor.Executor) (retCf CompletionStage) {
 	ocf := convert(other)
 	cf.checkValue()
 	ocf.checkValue()
@@ -561,13 +546,14 @@ func (cf *CompletableFuture) ApplyToEitherAsync(
 	}
 
 	vh := NewAsyncHandler(fnValue.Type().Out(0))
-
+	retCf = newCf(cf.ctx, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
+		defer handlePanic(vh)
 		defer cf.setDone()
 		ve := cf.v.SelectValue(ocf.v, nil)
-		if ve.GetError() != nil {
-			vh.SetError(ve.GetError())
+		if !ve.HaveValue() {
+			vh.SetValueOrError(ve.Clone())
 			return
 		}
 
@@ -580,14 +566,14 @@ func (cf *CompletableFuture) ApplyToEitherAsync(
 		panic(err)
 	}
 
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：两个CompletionStage使用先完成的结果进行消耗
 // Param：other，与该CompletionStage比较，用先完成的结果进行消耗，注意两个CompletionStage的返回结果类型必须相同
 // Param：参数函数  f func(o Type)参数为先完成的CompletionStage的结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) AcceptEither(other CompletionStage, acceptFunc interface{}) CompletionStage {
+func (cf *CompletableFuture) AcceptEither(other CompletionStage, acceptFunc interface{}) (retCf CompletionStage)  {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -600,18 +586,19 @@ func (cf *CompletableFuture) AcceptEither(other CompletionStage, acceptFunc inte
 	}
 
 	vh := NewSyncHandler(NilType)
+	retCf = newCf(cf.ctx, vh)
 	ve := cf.v.SelectValue(ocf.v, nil)
-	if ve.GetError() != nil {
-		vh.SetError(ve.GetError())
-		return newCf(cf.ctx, vh)
+	if !ve.HaveValue() {
+		vh.SetValueOrError(ve.Clone())
+		return
 	}
 
 	RunAccept(fnValue, ve.GetValue())
 	err := vh.SetValue(NilValue)
 	if err != nil {
-		panic(err)
+		vh.SetError(err)
 	}
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：两个CompletionStage使用先完成的结果进行消耗
@@ -622,7 +609,7 @@ func (cf *CompletableFuture) AcceptEither(other CompletionStage, acceptFunc inte
 func (cf *CompletableFuture) AcceptEitherAsync(
 	other CompletionStage,
 	acceptFunc interface{},
-	executor ...executor.Executor) CompletionStage {
+	executor ...executor.Executor) (retCf CompletionStage) {
 	ocf := convert(other)
 	cf.checkValue()
 	ocf.checkValue()
@@ -634,12 +621,14 @@ func (cf *CompletableFuture) AcceptEitherAsync(
 	}
 
 	vh := NewAsyncHandler(NilType)
+	retCf = newCf(cf.ctx, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
+		defer handlePanic(vh)
 		defer cf.setDone()
 		ve := cf.v.SelectValue(ocf.v, nil)
-		if ve.GetError() != nil {
-			vh.SetError(ve.GetError())
+		if !ve.HaveValue() {
+			vh.SetValueOrError(ve.Clone())
 			return
 		}
 
@@ -652,14 +641,14 @@ func (cf *CompletableFuture) AcceptEitherAsync(
 	if err != nil {
 		panic(err)
 	}
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：两个CompletionStage任意一个完成则执行操作
 // Param：other，与该CompletionStage比较，任意一个完成则执行操作，注意两个CompletionStage的返回结果类型必须相同
 // Param：参数函数
 // Return：新的CompletionStage
-func (cf *CompletableFuture) RunAfterEither(other CompletionStage, runnable func()) CompletionStage {
+func (cf *CompletableFuture) RunAfterEither(other CompletionStage, runnable func()) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -667,18 +656,19 @@ func (cf *CompletableFuture) RunAfterEither(other CompletionStage, runnable func
 	cf.checkSameType(ocf)
 
 	vh := NewSyncHandler(NilType)
+	retCf = newCf(cf.ctx, vh)
 	ve := cf.v.SelectValue(ocf.v, nil)
-	if ve.GetError() != nil {
-		vh.SetError(ve.GetError())
-		return newCf(cf.ctx, vh)
+	if !ve.HaveValue() {
+		vh.SetValueOrError(ve.Clone())
+		return
 	}
 
 	runnable()
 	err := vh.SetValue(NilValue)
 	if err != nil {
-		panic(err)
+		vh.SetError(err)
 	}
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：两个CompletionStage任意一个完成则执行操作
@@ -689,19 +679,21 @@ func (cf *CompletableFuture) RunAfterEither(other CompletionStage, runnable func
 func (cf *CompletableFuture) RunAfterAsyncEither(
 	other CompletionStage,
 	runnable func(),
-	executor ...executor.Executor) CompletionStage {
+	executor ...executor.Executor) (retCf CompletionStage) {
 	ocf := convert(other)
 	cf.checkValue()
 	ocf.checkValue()
 	cf.checkSameType(ocf)
 
 	vh := NewAsyncHandler(NilType)
+	retCf = newCf(cf.ctx, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
+		defer handlePanic(vh)
 		defer cf.setDone()
 		ve := cf.v.SelectValue(ocf.v, nil)
-		if ve.GetError() != nil {
-			vh.SetError(ve.GetError())
+		if !ve.HaveValue() {
+			vh.SetValueOrError(ve.Clone())
 			return
 		}
 
@@ -714,13 +706,13 @@ func (cf *CompletableFuture) RunAfterAsyncEither(
 	if err != nil {
 		panic(err)
 	}
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 当阶段正常完成时执行参数函数：使用上一阶段结果转化为新的CompletionStage
 // Param：参数函数，f func(o TYPE) CompletionStage 参数：上一阶段结果，返回新的CompletionStage
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenCompose(f interface{}) CompletionStage {
+func (cf *CompletableFuture) ThenCompose(f interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	cf.checkValue()
 
@@ -731,9 +723,8 @@ func (cf *CompletableFuture) ThenCompose(f interface{}) CompletionStage {
 
 	vh := NewSyncHandler(NilType)
 	ve := cf.getValue(nil)
-	err := ve.GetError()
-	if err != nil {
-		vh.SetError(err)
+	if !ve.HaveValue() {
+		vh.SetValueOrError(ve.Clone())
 		return newCf(cf.ctx, vh)
 	}
 	newCom := RunCompose(fnValue, ve.GetValue())
@@ -756,7 +747,7 @@ func (cf *CompletableFuture) ThenCompose(f interface{}) CompletionStage {
 // Param：参数函数，f func(o TYPE) CompletionStage 参数：上一阶段结果，返回新的CompletionStage
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenComposeAsync(f interface{}, executor ...executor.Executor) CompletionStage {
+func (cf *CompletableFuture) ThenComposeAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(f)
@@ -765,13 +756,14 @@ func (cf *CompletableFuture) ThenComposeAsync(f interface{}, executor ...executo
 	}
 
 	vh := NewAsyncHandler(NilType)
+	retCf = newCf(cf.ctx, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
+		defer handlePanic(vh)
 		defer cf.setDone()
 		ve := cf.getValue(nil)
-		err := ve.GetError()
-		if err != nil {
-			vh.SetError(err)
+		if !ve.HaveValue() {
+			vh.SetValueOrError(ve.Clone())
 			return
 		}
 		newCom := RunCompose(fnValue, ve.GetValue())
@@ -790,7 +782,7 @@ func (cf *CompletableFuture) ThenComposeAsync(f interface{}, executor ...executo
 		panic(err)
 	}
 
-	return newCf(cf.ctx, vh)
+	return
 }
 
 // 尝试获得ValueOrError
@@ -922,6 +914,9 @@ func (cf *CompletableFuture) Get(result interface{}, timeout ...time.Duration) e
 	} else {
 		ve = cf.getValue(nil)
 	}
+	if ve.HavePanic() {
+		panic(ve.GetPanic())
+	}
 	if result == nil {
 		return nil
 	}
@@ -962,6 +957,12 @@ func (cf *CompletableFuture) checkValue() {
 func (cf *CompletableFuture) checkSameType(other *CompletableFuture) {
 	if cf.vType != other.vType {
 		panic("Not same type!")
+	}
+}
+
+func handlePanic(handler *defaultValueHandler) {
+	if r := recover(); r != nil {
+		handler.SetPanic(r)
 	}
 }
 
