@@ -55,14 +55,14 @@ func (ve vOrErr) IsTimeout() bool {
 	return ve.err == timeoutError
 }
 
-func NewAsyncHanlder(t reflect.Type) *ValueHandler {
+func NewAsyncHandler(t reflect.Type) *ValueHandler {
 	return &ValueHandler{
 		t:         t,
 		valueChan: make(chan ValueOrError),
 	}
 }
 
-func NewSyncValue(t reflect.Type) *ValueHandler {
+func NewSyncHandler(t reflect.Type) *ValueHandler {
 	return &ValueHandler{
 		t:         t,
 		valueChan: make(chan ValueOrError, 1),
