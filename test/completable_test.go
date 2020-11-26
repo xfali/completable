@@ -364,6 +364,51 @@ func TestRunEither(t *testing.T) {
 	})
 }
 
+func TestCompose(t *testing.T) {
+	t.Run("sync", func(t *testing.T) {
+		now := time.Now()
+		ret := ""
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).ThenCompose(func(s string) completable.CompletionStage {
+			t.Log(s)
+			if s != "Hello" {
+				t.Fatal("not match")
+			}
+			return completable.SupplyAsync(func() string {
+				return "world"
+			})
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != "world" {
+			t.Fatal("not match")
+		}
+	})
+	t.Run("async", func(t *testing.T) {
+		now := time.Now()
+		ret := ""
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).ThenComposeAsync(func(s string) completable.CompletionStage {
+			t.Log(s)
+			if s != "Hello" {
+				t.Fatal("not match")
+			}
+			return completable.SupplyAsync(func() string {
+				return "world"
+			})
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != "world" {
+			t.Fatal("not match")
+		}
+	})
+}
+
 func TestExceptionally(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
@@ -379,6 +424,23 @@ func TestExceptionally(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 		if ret != "world" {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("sync no panic", func(t *testing.T) {
+		now := time.Now()
+		ret := ""
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).Exceptionally(func(o interface{}) string {
+			t.Log(o)
+			return "world"
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != "Hello" {
 			t.Fatal("not match")
 		}
 	})
@@ -401,6 +463,23 @@ func TestWhenComplete(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 	})
+
+	t.Run("sync no panic", func(t *testing.T) {
+		now := time.Now()
+		ret := ""
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).WhenComplete(func(s string, panic interface{}) {
+			t.Log(s, panic)
+			if s != "Hello" || panic != nil {
+				t.Fatal("not match")
+			}
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+	})
+
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -417,10 +496,26 @@ func TestWhenComplete(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 	})
+
+	t.Run("async no panic", func(t *testing.T) {
+		now := time.Now()
+		ret := ""
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).WhenCompleteAsync(func(s string, panic interface{}) {
+			t.Log(s, panic)
+			if s != "Hello" || panic != nil {
+				t.Fatal("not match")
+			}
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+	})
 }
 
 func TestHandle(t *testing.T) {
-	t.Run("sync", func(t *testing.T) {
+	t.Run("sync panic", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
 		cf := completable.SupplyAsync(func() string {
@@ -446,6 +541,33 @@ func TestHandle(t *testing.T) {
 			t.Fatal("not match")
 		}
 	})
+
+	t.Run("sync no panic", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).Handle(func(s string, panic interface{}) int {
+			t.Log(panic)
+			if s != "Hello" || panic != nil {
+				t.Fatal("not match")
+			}
+			if s != "" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != 1 {
+			t.Fatal("not match")
+		}
+	})
+
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
@@ -469,6 +591,32 @@ func TestHandle(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 		if ret != 2 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("async no panic", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).HandleAsync(func(s string, panic interface{}) int {
+			t.Log(panic)
+			if s != "Hello" || panic != nil {
+				t.Fatal("not match")
+			}
+			if s != "" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != 1 {
 			t.Fatal("not match")
 		}
 	})

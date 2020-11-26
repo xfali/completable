@@ -13,10 +13,12 @@ import (
 )
 
 type Nil struct{}
+
 var (
-	gNil     = &Nil{}
-	NilType  = reflect.TypeOf(gNil)
-	NilValue = reflect.ValueOf(gNil)
+	gNil          = &Nil{}
+	NilType       = reflect.TypeOf(gNil)
+	NilValue      = reflect.ValueOf(gNil)
+	InterfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
 
 	doneError  = errors.New("Done. ")
 	gDoneError = newDone()

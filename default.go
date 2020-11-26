@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"github.com/xfali/completable/functools"
+	"github.com/xfali/completable/v0.0.1"
 	"github.com/xfali/executor"
 	"reflect"
 	"sync/atomic"
@@ -32,6 +33,10 @@ const (
 	completableFutureCancel
 )
 
+// 注意CompletableFuture的修改原则：
+// 1、每个返回的CompletableFuture中的ValueHandler都必须有一个Set操作，不论是value、error、panic（目前无error）
+// 2、在1的基础上注意程序或者函数参数造的的panic没有被正确步骤，使得Set操作没有被执行，此时会造成死锁；
+//    所以在开发时，要么在创建返回CompletableFuture之前就panic，要么就捕捉panic然后ValueHandler SetPanic
 type CompletableFuture struct {
 	vType      reflect.Type
 	v          ValueHandler
@@ -826,16 +831,23 @@ func (cf *CompletableFuture) Exceptionally(f interface{}) (retCf CompletionStage
 	retCf = newCf(cf.ctx, vh)
 	defer handlePanic(vh)
 	ve := cf.getValue(nil)
-	v := ve.GetValue()
-	if !v.IsValid() {
-		v = reflect.New(cf.vType).Elem()
+	if ve.HaveValue() {
+		err := vh.SetValue(ve.GetValue())
+		if err != nil {
+			vh.SetPanic(err)
+		}
+		return
 	}
-	p := ve.GetPanic()
+	if ve.HavePanic() {
+		p := ve.GetPanic()
+		if p != nil {
+			err := vh.SetValue(functools.RunPanic(fnValue, reflect.ValueOf(p)))
+			if err != nil {
+				vh.SetPanic(err)
+			}
+		}
+	}
 
-	err := vh.SetValue(functools.RunPanic(fnValue, reflect.ValueOf(p)))
-	if err != nil {
-		vh.SetPanic(err)
-	}
 	return
 }
 
@@ -858,8 +870,14 @@ func (cf *CompletableFuture) WhenComplete(f interface{}) (retCf CompletionStage)
 		v = reflect.New(cf.vType).Elem()
 	}
 	p := ve.GetPanic()
+	var panicV reflect.Value
+	if p == nil {
+		panicV = reflect.Zero(InterfaceType)
+	} else {
+		panicV = reflect.ValueOf(p)
+	}
+	functools.RunWhenComplete(fnValue, v, panicV)
 
-	functools.RunWhenComplete(fnValue, v, reflect.ValueOf(p))
 	vh.SetValue(NilValue)
 	return
 }
@@ -886,8 +904,13 @@ func (cf *CompletableFuture) WhenCompleteAsync(f interface{}, executor ...execut
 			v = reflect.New(cf.vType).Elem()
 		}
 		p := ve.GetPanic()
-
-		functools.RunWhenComplete(fnValue, v, reflect.ValueOf(p))
+		var panicV reflect.Value
+		if p == nil {
+			panicV = reflect.Zero(InterfaceType)
+		} else {
+			panicV = reflect.ValueOf(p)
+		}
+		functools.RunWhenComplete(fnValue, v, panicV)
 		vh.SetValue(NilValue)
 	})
 	if err != nil {
@@ -916,10 +939,17 @@ func (cf *CompletableFuture) Handle(f interface{}) (retCf CompletionStage) {
 	}
 	p := ve.GetPanic()
 
-	err := vh.SetValue(functools.RunHandle(fnValue, v, reflect.ValueOf(p)))
+	var panicV reflect.Value
+	if p == nil {
+		panicV = reflect.Zero(InterfaceType)
+	} else {
+		panicV = reflect.ValueOf(p)
+	}
+	err := vh.SetValue(functools.RunHandle(fnValue, v, panicV))
 	if err != nil {
 		vh.SetPanic(err)
 	}
+
 	return
 }
 
@@ -947,7 +977,13 @@ func (cf *CompletableFuture) HandleAsync(f interface{}, executor ...executor.Exe
 		}
 		p := ve.GetPanic()
 
-		err := vh.SetValue(functools.RunHandle(fnValue, v, reflect.ValueOf(p)))
+		var panicV reflect.Value
+		if p == nil {
+			panicV = reflect.Zero(InterfaceType)
+		} else {
+			panicV = reflect.ValueOf(p)
+		}
+		err := vh.SetValue(functools.RunHandle(fnValue, v, panicV))
 		if err != nil {
 			vh.SetPanic(err)
 		}
@@ -1074,7 +1110,7 @@ func chooseExecutor(executor ...executor.Executor) executor.Executor {
 type composeCf struct {
 	cf *CompletableFuture
 }
-var composeCfType = reflect.TypeOf(&composeCf{})
+var composeCfType = reflect.TypeOf((*composeCf)(nil))
 
 func SupplyAsync(f interface{}, executor ...executor.Executor) (retCf *CompletableFuture) {
 	fnValue := reflect.ValueOf(f)
@@ -1119,7 +1155,7 @@ func RunAsync(f func(), executor ...executor.Executor) (retCf *CompletableFuture
 	return
 }
 
-var completionStageType = reflect.TypeOf(&CompletableFuture{})
+var completionStageType = reflect.TypeOf((*completable.CompletionStage)(nil)).Elem()
 func checkComposeFunction(fn reflect.Type, vType reflect.Type) error {
 	if fn.Kind() != reflect.Func {
 		return errors.New("Param is not a function. ")
@@ -1133,7 +1169,7 @@ func checkComposeFunction(fn reflect.Type, vType reflect.Type) error {
 	}
 
 	outType := fn.Out(0)
-	if outType != completionStageType {
+	if outType.Implements(completionStageType) {
 		return errors.New("Type must be f func(o TYPE) CompletionStage. out[0] not match. ")
 	}
 	return nil
