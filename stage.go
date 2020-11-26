@@ -115,7 +115,7 @@ type CompletionStage interface {
 	// Param：参数函数
 	// Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 	// Return：新的CompletionStage
-	RunAfterAsyncEither(other CompletionStage, f func(), executor ...executor.Executor) CompletionStage
+	RunAfterEitherAsync(other CompletionStage, f func(), executor ...executor.Executor) CompletionStage
 
 	// 当阶段正常完成时执行参数函数：使用上一阶段结果转化为新的CompletionStage
 	// Param：参数函数，f func(o TYPE) CompletionStage 参数：上一阶段结果，返回新的CompletionStage

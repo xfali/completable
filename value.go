@@ -13,7 +13,6 @@ import (
 )
 
 type Nil struct{}
-
 var (
 	gNil     = &Nil{}
 	NilType  = reflect.TypeOf(gNil)

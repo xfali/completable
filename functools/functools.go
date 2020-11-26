@@ -3,14 +3,12 @@
 // @version V1.0
 // Description:
 
-package completable
+package functools
 
 import (
 	"errors"
 	"reflect"
 )
-
-var CompletionStageType = reflect.TypeOf(*(*CompletionStage)())
 
 func CheckSupplyFunction(fn reflect.Type) error {
 	if fn.Kind() != reflect.Func {
@@ -84,25 +82,6 @@ func CheckAcceptBothFunction(fn reflect.Type, vType1, vType2 reflect.Type) error
 	inType2 := fn.In(1)
 	if inType2 != vType2 {
 		return errors.New("Type must be f func( TYPE,  Type2) . in[1] not match. ")
-	}
-	return nil
-}
-
-func CheckComposeFunction(fn reflect.Type, vType reflect.Type) error {
-	if fn.Kind() != reflect.Func {
-		return errors.New("Param is not a function. ")
-	}
-	if fn.NumIn() != 1 || fn.NumOut() != 1 {
-		return errors.New("Type must be f func(o TYPE) CompletionStage. number not match. ")
-	}
-	inType := fn.In(0)
-	if inType != vType {
-		return errors.New("Type must be f func(o TYPE) CompletionStage. in[0] not match. ")
-	}
-
-	outType := fn.Out(0)
-	if outType != CompletionStageType {
-		return errors.New("Type must be f func(o TYPE) CompletionStage. out[0] not match. ")
 	}
 	return nil
 }

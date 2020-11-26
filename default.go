@@ -8,6 +8,7 @@ package completable
 import (
 	"context"
 	"errors"
+	"github.com/xfali/completable/functools"
 	"github.com/xfali/executor"
 	"reflect"
 	"sync/atomic"
@@ -77,7 +78,7 @@ func (cf *CompletableFuture) ThenApply(applyFunc interface{}) (retCf CompletionS
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(applyFunc)
-	if err := CheckApplyFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckApplyFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
@@ -91,7 +92,7 @@ func (cf *CompletableFuture) ThenApply(applyFunc interface{}) (retCf CompletionS
 		return
 	}
 
-	err := vh.SetValue(RunApply(fnValue, ve.GetValue()))
+	err := vh.SetValue(functools.RunApply(fnValue, ve.GetValue()))
 	if err != nil {
 		vh.SetPanic(err)
 	}
@@ -105,7 +106,7 @@ func (cf *CompletableFuture) ThenApplyAsync(applyFunc interface{}, executor ...e
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(applyFunc)
-	if err := CheckApplyFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckApplyFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
@@ -120,7 +121,7 @@ func (cf *CompletableFuture) ThenApplyAsync(applyFunc interface{}, executor ...e
 			vh.SetValueOrError(ve.Clone())
 			return
 		}
-		err := vh.SetValue(RunApply(fnValue, ve.GetValue()))
+		err := vh.SetValue(functools.RunApply(fnValue, ve.GetValue()))
 		if err != nil {
 			vh.SetPanic(err)
 		}
@@ -139,7 +140,7 @@ func (cf *CompletableFuture) ThenAccept(acceptFunc interface{}) (retCf Completio
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(acceptFunc)
-	if err := CheckAcceptFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckAcceptFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
@@ -152,7 +153,7 @@ func (cf *CompletableFuture) ThenAccept(acceptFunc interface{}) (retCf Completio
 		return
 	}
 
-	RunAccept(fnValue, ve.GetValue())
+	functools.RunAccept(fnValue, ve.GetValue())
 	vh.SetValue(NilValue)
 	return
 }
@@ -164,7 +165,7 @@ func (cf *CompletableFuture) ThenAcceptAsync(acceptFunc interface{}, executor ..
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(acceptFunc)
-	if err := CheckAcceptFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckAcceptFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
@@ -179,7 +180,7 @@ func (cf *CompletableFuture) ThenAcceptAsync(acceptFunc interface{}, executor ..
 			vh.SetValueOrError(ve.Clone())
 			return
 		}
-		RunAccept(fnValue, ve.GetValue())
+		functools.RunAccept(fnValue, ve.GetValue())
 		vh.SetValue(NilValue)
 	})
 	if err != nil {
@@ -247,7 +248,7 @@ func (cf *CompletableFuture) ThenCombine(other CompletionStage, combineFunc inte
 	ocf.checkValue()
 
 	fnValue := reflect.ValueOf(combineFunc)
-	if err := CheckCombineFunction(fnValue.Type(), cf.vType, ocf.vType); err != nil {
+	if err := functools.CheckCombineFunction(fnValue.Type(), cf.vType, ocf.vType); err != nil {
 		panic(err)
 	}
 
@@ -271,7 +272,7 @@ func (cf *CompletableFuture) ThenCombine(other CompletionStage, combineFunc inte
 		return
 	}
 
-	err := vh.SetValue(RunCombine(fnValue, ve1.GetValue(), ve2.GetValue()))
+	err := vh.SetValue(functools.RunCombine(fnValue, ve1.GetValue(), ve2.GetValue()))
 	if err != nil {
 		vh.SetPanic(err)
 	}
@@ -292,7 +293,7 @@ func (cf *CompletableFuture) ThenCombineAsync(
 	ocf.checkValue()
 
 	fnValue := reflect.ValueOf(combineFunc)
-	if err := CheckCombineFunction(fnValue.Type(), cf.vType, ocf.vType); err != nil {
+	if err := functools.CheckCombineFunction(fnValue.Type(), cf.vType, ocf.vType); err != nil {
 		panic(err)
 	}
 
@@ -319,7 +320,7 @@ func (cf *CompletableFuture) ThenCombineAsync(
 			return
 		}
 
-		err := vh.SetValue(RunCombine(fnValue, ve1.GetValue(), ve2.GetValue()))
+		err := vh.SetValue(functools.RunCombine(fnValue, ve1.GetValue(), ve2.GetValue()))
 		if err != nil {
 			vh.SetPanic(err)
 		}
@@ -342,7 +343,7 @@ func (cf *CompletableFuture) ThenAcceptBoth(other CompletionStage, acceptFunc in
 	ocf.checkValue()
 
 	fnValue := reflect.ValueOf(acceptFunc)
-	if err := CheckAcceptBothFunction(fnValue.Type(), cf.vType, ocf.vType); err != nil {
+	if err := functools.CheckAcceptBothFunction(fnValue.Type(), cf.vType, ocf.vType); err != nil {
 		panic(err)
 	}
 
@@ -367,7 +368,7 @@ func (cf *CompletableFuture) ThenAcceptBoth(other CompletionStage, acceptFunc in
 		return
 	}
 
-	RunAcceptBoth(fnValue, ve1.GetValue(), ve2.GetValue())
+	functools.RunAcceptBoth(fnValue, ve1.GetValue(), ve2.GetValue())
 	vh.SetValue(NilValue)
 	return
 }
@@ -386,7 +387,7 @@ func (cf *CompletableFuture) ThenAcceptBothAsync(
 	ocf.checkValue()
 
 	fnValue := reflect.ValueOf(acceptFunc)
-	if err := CheckAcceptBothFunction(fnValue.Type(), cf.vType, ocf.vType); err != nil {
+	if err := functools.CheckAcceptBothFunction(fnValue.Type(), cf.vType, ocf.vType); err != nil {
 		panic(err)
 	}
 
@@ -413,7 +414,7 @@ func (cf *CompletableFuture) ThenAcceptBothAsync(
 			return
 		}
 
-		RunAcceptBoth(fnValue, ve1.GetValue(), ve2.GetValue())
+		functools.RunAcceptBoth(fnValue, ve1.GetValue(), ve2.GetValue())
 		vh.SetValue(NilValue)
 	})
 	if err != nil {
@@ -513,7 +514,7 @@ func (cf *CompletableFuture) ApplyToEither(other CompletionStage, applyFunc inte
 	cf.checkSameType(ocf)
 
 	fnValue := reflect.ValueOf(applyFunc)
-	if err := CheckApplyFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckApplyFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
@@ -526,7 +527,7 @@ func (cf *CompletableFuture) ApplyToEither(other CompletionStage, applyFunc inte
 		return
 	}
 
-	err := vh.SetValue(RunApply(fnValue, ve.GetValue()))
+	err := vh.SetValue(functools.RunApply(fnValue, ve.GetValue()))
 	if err != nil {
 		vh.SetPanic(err)
 	}
@@ -548,7 +549,7 @@ func (cf *CompletableFuture) ApplyToEitherAsync(
 	cf.checkSameType(ocf)
 
 	fnValue := reflect.ValueOf(applyFunc)
-	if err := CheckApplyFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckApplyFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
@@ -564,7 +565,7 @@ func (cf *CompletableFuture) ApplyToEitherAsync(
 			return
 		}
 
-		err := vh.SetValue(RunApply(fnValue, ve.GetValue()))
+		err := vh.SetValue(functools.RunApply(fnValue, ve.GetValue()))
 		if err != nil {
 			vh.SetPanic(err)
 		}
@@ -588,7 +589,7 @@ func (cf *CompletableFuture) AcceptEither(other CompletionStage, acceptFunc inte
 	cf.checkSameType(ocf)
 
 	fnValue := reflect.ValueOf(acceptFunc)
-	if err := CheckAcceptFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckAcceptFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
@@ -601,7 +602,7 @@ func (cf *CompletableFuture) AcceptEither(other CompletionStage, acceptFunc inte
 		return
 	}
 
-	RunAccept(fnValue, ve.GetValue())
+	functools.RunAccept(fnValue, ve.GetValue())
 	err := vh.SetValue(NilValue)
 	if err != nil {
 		vh.SetPanic(err)
@@ -624,7 +625,7 @@ func (cf *CompletableFuture) AcceptEitherAsync(
 	cf.checkSameType(ocf)
 
 	fnValue := reflect.ValueOf(acceptFunc)
-	if err := CheckAcceptFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckAcceptFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
@@ -640,7 +641,7 @@ func (cf *CompletableFuture) AcceptEitherAsync(
 			return
 		}
 
-		RunAccept(fnValue, ve.GetValue())
+		functools.RunAccept(fnValue, ve.GetValue())
 		err := vh.SetValue(NilValue)
 		if err != nil {
 			vh.SetPanic(err)
@@ -685,7 +686,7 @@ func (cf *CompletableFuture) RunAfterEither(other CompletionStage, runnable func
 // Param：参数函数
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) RunAfterAsyncEither(
+func (cf *CompletableFuture) RunAfterEitherAsync(
 	other CompletionStage,
 	runnable func(),
 	executor ...executor.Executor) (retCf CompletionStage) {
@@ -726,7 +727,7 @@ func (cf *CompletableFuture) ThenCompose(f interface{}) (retCf CompletionStage) 
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(f)
-	if err := CheckComposeFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := checkComposeFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
@@ -738,7 +739,7 @@ func (cf *CompletableFuture) ThenCompose(f interface{}) (retCf CompletionStage) 
 		vh.SetValueOrError(ve.Clone())
 		return
 	}
-	newCom := RunCompose(fnValue, ve.GetValue())
+	newCom := functools.RunCompose(fnValue, ve.GetValue())
 	if newCom.IsValid() {
 		i := newCom.Interface()
 		if i == nil {
@@ -762,11 +763,11 @@ func (cf *CompletableFuture) ThenComposeAsync(f interface{}, executor ...executo
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(f)
-	if err := CheckComposeFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := checkComposeFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
-	vh := NewAsyncHandler(NilType)
+	vh := NewAsyncHandler(composeCfType)
 	retCf = newCf(cf.ctx, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
@@ -777,7 +778,7 @@ func (cf *CompletableFuture) ThenComposeAsync(f interface{}, executor ...executo
 			vh.SetValueOrError(ve.Clone())
 			return
 		}
-		newCom := RunCompose(fnValue, ve.GetValue())
+		newCom := functools.RunCompose(fnValue, ve.GetValue())
 		if newCom.IsValid() {
 			i := newCom.Interface()
 			if i == nil {
@@ -817,21 +818,21 @@ func (cf *CompletableFuture) getValue(ctx context.Context) ValueOrError {
 func (cf *CompletableFuture) Exceptionally(f interface{}) (retCf CompletionStage) {
 	cf.checkValue()
 	fnValue := reflect.ValueOf(f)
-	if err := CheckPanicFunction(fnValue.Type()); err != nil {
+	if err := functools.CheckPanicFunction(fnValue.Type()); err != nil {
 		panic(err)
 	}
 
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(fnValue.Type().Out(0))
 	retCf = newCf(cf.ctx, vh)
 	defer handlePanic(vh)
 	ve := cf.getValue(nil)
 	v := ve.GetValue()
-	if v.IsValid() {
+	if !v.IsValid() {
 		v = reflect.New(cf.vType).Elem()
 	}
 	p := ve.GetPanic()
 
-	err := vh.SetValue(RunPanic(fnValue, reflect.ValueOf(p)))
+	err := vh.SetValue(functools.RunPanic(fnValue, reflect.ValueOf(p)))
 	if err != nil {
 		vh.SetPanic(err)
 	}
@@ -844,7 +845,7 @@ func (cf *CompletableFuture) Exceptionally(f interface{}) (retCf CompletionStage
 func (cf *CompletableFuture) WhenComplete(f interface{}) (retCf CompletionStage) {
 	cf.checkValue()
 	fnValue := reflect.ValueOf(f)
-	if err := CheckWhenCompleteFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckWhenCompleteFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
@@ -853,12 +854,13 @@ func (cf *CompletableFuture) WhenComplete(f interface{}) (retCf CompletionStage)
 	defer handlePanic(vh)
 	ve := cf.getValue(nil)
 	v := ve.GetValue()
-	if v.IsValid() {
+	if !v.IsValid() {
 		v = reflect.New(cf.vType).Elem()
 	}
 	p := ve.GetPanic()
 
-	RunWhenComplete(fnValue, v, reflect.ValueOf(p))
+	functools.RunWhenComplete(fnValue, v, reflect.ValueOf(p))
+	vh.SetValue(NilValue)
 	return
 }
 
@@ -869,7 +871,7 @@ func (cf *CompletableFuture) WhenComplete(f interface{}) (retCf CompletionStage)
 func (cf *CompletableFuture) WhenCompleteAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 	fnValue := reflect.ValueOf(f)
-	if err := CheckWhenCompleteFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckWhenCompleteFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 	vh := NewAsyncHandler(NilType)
@@ -880,12 +882,13 @@ func (cf *CompletableFuture) WhenCompleteAsync(f interface{}, executor ...execut
 
 		ve := cf.getValue(nil)
 		v := ve.GetValue()
-		if v.IsValid() {
+		if !v.IsValid() {
 			v = reflect.New(cf.vType).Elem()
 		}
 		p := ve.GetPanic()
 
-		RunWhenComplete(fnValue, v, reflect.ValueOf(p))
+		functools.RunWhenComplete(fnValue, v, reflect.ValueOf(p))
+		vh.SetValue(NilValue)
 	})
 	if err != nil {
 		vh.SetPanic(err)
@@ -899,21 +902,21 @@ func (cf *CompletableFuture) WhenCompleteAsync(f interface{}, executor ...execut
 func (cf *CompletableFuture) Handle(f interface{}) (retCf CompletionStage) {
 	cf.checkValue()
 	fnValue := reflect.ValueOf(f)
-	if err := CheckHandleFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckHandleFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(fnValue.Type().Out(0))
 	retCf = newCf(cf.ctx, vh)
 	defer handlePanic(vh)
 	ve := cf.getValue(nil)
 	v := ve.GetValue()
-	if v.IsValid() {
+	if !v.IsValid() {
 		v = reflect.New(cf.vType).Elem()
 	}
 	p := ve.GetPanic()
 
-	err := vh.SetValue(RunHandle(fnValue, v, reflect.ValueOf(p)))
+	err := vh.SetValue(functools.RunHandle(fnValue, v, reflect.ValueOf(p)))
 	if err != nil {
 		vh.SetPanic(err)
 	}
@@ -927,11 +930,11 @@ func (cf *CompletableFuture) Handle(f interface{}) (retCf CompletionStage) {
 func (cf *CompletableFuture) HandleAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 	fnValue := reflect.ValueOf(f)
-	if err := CheckHandleFunction(fnValue.Type(), cf.vType); err != nil {
+	if err := functools.CheckHandleFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
 
-	vh := NewAsyncHandler(NilType)
+	vh := NewAsyncHandler(fnValue.Type().Out(0))
 	retCf = newCf(cf.ctx, vh)
 
 	exec := cf.chooseExecutor(executor...)
@@ -939,12 +942,12 @@ func (cf *CompletableFuture) HandleAsync(f interface{}, executor ...executor.Exe
 		defer handlePanic(vh)
 		ve := cf.getValue(nil)
 		v := ve.GetValue()
-		if v.IsValid() {
+		if !v.IsValid() {
 			v = reflect.New(cf.vType).Elem()
 		}
 		p := ve.GetPanic()
 
-		err := vh.SetValue(RunHandle(fnValue, v, reflect.ValueOf(p)))
+		err := vh.SetValue(functools.RunHandle(fnValue, v, reflect.ValueOf(p)))
 		if err != nil {
 			vh.SetPanic(err)
 		}
@@ -997,7 +1000,7 @@ func (cf *CompletableFuture) Get(result interface{}, timeout ...time.Duration) e
 		return nil
 	}
 	retValue := reflect.ValueOf(result)
-	if err := CheckPtr(retValue.Type()); err != nil {
+	if err := functools.CheckPtr(retValue.Type()); err != nil {
 		return err
 	}
 	err := ve.GetError()
@@ -1006,6 +1009,9 @@ func (cf *CompletableFuture) Get(result interface{}, timeout ...time.Duration) e
 	}
 	v := ve.GetValue()
 	if v.IsValid() {
+		if v.Type() == NilType {
+			return errors.New("Nil type cannot be set! ")
+		}
 		retValue = retValue.Elem()
 		if !retValue.CanSet() {
 			return errors.New("Cannot set. ")
@@ -1068,10 +1074,11 @@ func chooseExecutor(executor ...executor.Executor) executor.Executor {
 type composeCf struct {
 	cf *CompletableFuture
 }
+var composeCfType = reflect.TypeOf(&composeCf{})
 
 func SupplyAsync(f interface{}, executor ...executor.Executor) (retCf *CompletableFuture) {
 	fnValue := reflect.ValueOf(f)
-	if err := CheckSupplyFunction(fnValue.Type()); err != nil {
+	if err := functools.CheckSupplyFunction(fnValue.Type()); err != nil {
 		panic(err)
 	}
 
@@ -1081,7 +1088,7 @@ func SupplyAsync(f interface{}, executor ...executor.Executor) (retCf *Completab
 	exec := chooseExecutor(executor...)
 	err := exec.Run(func() {
 		defer handlePanic(vh)
-		v := RunSupply(fnValue)
+		v := functools.RunSupply(fnValue)
 		err := vh.SetValue(v)
 		if err != nil {
 			vh.SetPanic(err)
@@ -1091,4 +1098,43 @@ func SupplyAsync(f interface{}, executor ...executor.Executor) (retCf *Completab
 		panic(err)
 	}
 	return
+}
+
+func RunAsync(f func(), executor ...executor.Executor) (retCf *CompletableFuture) {
+	vh := NewAsyncHandler(NilType)
+	retCf = newCf(context.Background(), vh)
+
+	exec := chooseExecutor(executor...)
+	err := exec.Run(func() {
+		defer handlePanic(vh)
+		f()
+		err := vh.SetValue(NilValue)
+		if err != nil {
+			vh.SetPanic(err)
+		}
+	})
+	if err != nil {
+		panic(err)
+	}
+	return
+}
+
+var completionStageType = reflect.TypeOf(&CompletableFuture{})
+func checkComposeFunction(fn reflect.Type, vType reflect.Type) error {
+	if fn.Kind() != reflect.Func {
+		return errors.New("Param is not a function. ")
+	}
+	if fn.NumIn() != 1 || fn.NumOut() != 1 {
+		return errors.New("Type must be f func(o TYPE) CompletionStage. number not match. ")
+	}
+	inType := fn.In(0)
+	if inType != vType {
+		return errors.New("Type must be f func(o TYPE) CompletionStage. in[0] not match. ")
+	}
+
+	outType := fn.Out(0)
+	if outType != completionStageType {
+		return errors.New("Type must be f func(o TYPE) CompletionStage. out[0] not match. ")
+	}
+	return nil
 }
