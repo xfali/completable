@@ -134,9 +134,12 @@ func TestThenCombine(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenCombine(completable.SupplyAsync(func() string {
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) string {
+			if time.Since(now) < 2*time.Second {
+				t.Fatal("not match")
+			}
 			return s1 + s2
 		})
 		cf.Get(&ret)
@@ -152,9 +155,12 @@ func TestThenCombine(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenCombineAsync(completable.SupplyAsync(func() string {
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) string {
+			if time.Since(now) < 2*time.Second {
+				t.Fatal("not match")
+			}
 			return s1 + s2
 		})
 		cf.Get(&ret)
@@ -173,10 +179,13 @@ func TestAcceptBoth(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenAcceptBoth(completable.SupplyAsync(func() string {
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) {
 			if s1+s2 != "Hello world" {
+				t.Fatal("not match")
+			}
+			if time.Since(now) < 2*time.Second {
 				t.Fatal("not match")
 			}
 		})
@@ -190,10 +199,13 @@ func TestAcceptBoth(t *testing.T) {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenAcceptBothAsync(completable.SupplyAsync(func() string {
-			time.Sleep(1 * time.Second)
+			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) {
 			if s1+s2 != "Hello world" {
+				t.Fatal("not match")
+			}
+			if time.Since(now) < 2*time.Second {
 				t.Fatal("not match")
 			}
 		})

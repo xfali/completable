@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"reflect"
-	"runtime"
 )
 
 type Nil struct{}
@@ -256,63 +255,28 @@ func (vh *defaultValueHandler) SelectValue(ovh ValueHandler, ctx context.Context
 func (vh *defaultValueHandler) BothValue(ovh ValueHandler, ctx context.Context) (v1, v2 ValueOrError) {
 	other := ovh.(*defaultValueHandler)
 	if ctx == nil {
-		s1, s2 := false, false
-		for {
-			if !s1 {
-				select {
-				case v1 = <-vh.valueChan:
-					s1 = true
-				default:
-					if s2 {
-						v1 = <-vh.valueChan
-						return
-					}
-				}
-			}
-			if !s2 {
-				select {
-				case v2 = <-other.valueChan:
-					s2 = true
-				default:
-					if s1 {
-						v2 = <-other.valueChan
-						return
-					}
-				}
-			}
-			if s1 && s2 {
-				return
-			} else {
-				runtime.Gosched()
-			}
-		}
+		v1 = <-vh.valueChan
+		v2 = <-other.valueChan
+		return
 	} else {
-		s1, s2 := false, false
+		b1, b2 := false, false
 		for {
-			if !s1 {
-				select {
-				case v1 = <-vh.valueChan:
-					s1 = true
-				case <-ctx.Done():
-					v1 = newDone()
-					return
-				default:
-				}
-			}
-			if !s2 {
-				select {
-				case v2 = <-other.valueChan:
-					s2 = true
-				case <-ctx.Done():
+			select {
+			case v1 = <-vh.valueChan:
+				b1 = true
+			case v2 = <-other.valueChan:
+				b2 = true
+			case <-ctx.Done():
+				if b1 == true {
 					v2 = newDone()
-					return
-				default:
 				}
-			}
-			if s1 && s2 {
+				if b2 == true {
+					v1 = newDone()
+				}
 				return
-			} else {
-				runtime.Gosched()
+			}
+			if b1 && b2 {
+				return
 			}
 		}
 	}
