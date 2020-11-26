@@ -25,12 +25,12 @@ func init() {
 
 type CompletableFuture struct {
 	vType      reflect.Type
-	v          *ValueHandler
+	v          ValueHandler
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 }
 
-func newCf(pCtx context.Context, v *ValueHandler) *CompletableFuture {
+func newCf(pCtx context.Context, v *defaultValueHandler) *CompletableFuture {
 	ret := &CompletableFuture{
 		v: v,
 	}
@@ -45,7 +45,7 @@ func newCf(pCtx context.Context, v *ValueHandler) *CompletableFuture {
 	return ret
 }
 
-func newCfWithCancel(pCtx context.Context, cancelFunc context.CancelFunc, v *ValueHandler) *CompletableFuture {
+func newCfWithCancel(pCtx context.Context, cancelFunc context.CancelFunc, v *defaultValueHandler) *CompletableFuture {
 	ret := &CompletableFuture{
 		v: v,
 	}
@@ -756,7 +756,6 @@ func (cf *CompletableFuture) ThenComposeAsync(f interface{}, executor ...executo
 	if err != nil {
 		panic(err)
 	}
-
 
 	return nil
 }

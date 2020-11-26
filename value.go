@@ -12,24 +12,49 @@ import (
 	"time"
 )
 
-type ValueHandler struct {
-	t         reflect.Type
-	valueChan chan ValueOrError
-	isErr     int32
-}
-
-var timeoutError = errors.New("Timeout. ")
-var gTimeoutError = newTimeoutError()
-
 type Nil struct{}
-var gNil = &Nil{}
-var NilType = reflect.TypeOf(gNil)
-var NilValue = reflect.ValueOf(gNil)
+
+var (
+	timeoutError  = errors.New("Timeout. ")
+	gTimeoutError = newTimeoutError()
+
+	gNil     = &Nil{}
+	NilType  = reflect.TypeOf(gNil)
+	NilValue = reflect.ValueOf(gNil)
+)
 
 type ValueOrError interface {
+	// 获得值
 	GetValue() reflect.Value
+
+	// 获得错误
 	GetError() error
+
+	// 是否操作
 	IsTimeout() bool
+}
+
+type ValueHandler interface {
+	// 设置值，如果已经存在值或者错误则返回失败
+	SetValue(v reflect.Value) error
+
+	// 设置错误，如果已经存在值或者错误则panic
+	SetError(err error)
+
+	// 获得value的type
+	Type() reflect.Type
+
+	// 等待并获得ValueOrError（线程安全）
+	// timeout：等待超时时间
+	Get(timeout time.Duration) ValueOrError
+
+	// 在两个ValueHandler中选择最先返回的ValueOrError（线程安全）
+	// timeout：等待超时时间
+	SelectValue(other ValueHandler, timeout time.Duration) ValueOrError
+
+	// 同时等待并返回两个ValueHandler返回的ValueOrError（线程安全）
+	// timeout：等待超时时间
+	BothValue(other ValueHandler, timeout time.Duration) (v1, v2 ValueOrError)
 }
 
 type vOrErr struct {
@@ -41,6 +66,12 @@ func newTimeoutError() *vOrErr {
 	return &vOrErr{
 		err: timeoutError,
 	}
+}
+
+type defaultValueHandler struct {
+	t         reflect.Type
+	valueChan chan ValueOrError
+	isErr     int32
 }
 
 func (ve vOrErr) GetValue() reflect.Value {
@@ -55,41 +86,49 @@ func (ve vOrErr) IsTimeout() bool {
 	return ve.err == timeoutError
 }
 
-func NewAsyncHandler(t reflect.Type) *ValueHandler {
-	return &ValueHandler{
+func NewAsyncHandler(t reflect.Type) *defaultValueHandler {
+	return &defaultValueHandler{
 		t:         t,
 		valueChan: make(chan ValueOrError),
 	}
 }
 
-func NewSyncHandler(t reflect.Type) *ValueHandler {
-	return &ValueHandler{
+func NewSyncHandler(t reflect.Type) *defaultValueHandler {
+	return &defaultValueHandler{
 		t:         t,
 		valueChan: make(chan ValueOrError, 1),
 	}
 }
 
-func (vh *ValueHandler) SetValue(v reflect.Value) error {
+func (vh *defaultValueHandler) SetValue(v reflect.Value) error {
 	if v.Type() != vh.t {
 		return errors.New("Type not match. ")
 	}
-	vh.valueChan <- vOrErr{
-		v: v,
-	}
-	return nil
-}
-
-func (vh *ValueHandler) SetError(err error) {
-	vh.valueChan <- vOrErr{
-		err: err,
+	if len(vh.valueChan) == 0 {
+		vh.valueChan <- vOrErr{
+			v: v,
+		}
+		return nil
+	} else {
+		return errors.New("Already have a value. ")
 	}
 }
 
-func (vh *ValueHandler) Type() reflect.Type {
+func (vh *defaultValueHandler) SetError(err error) {
+	if len(vh.valueChan) == 0 {
+		vh.valueChan <- vOrErr{
+			err: err,
+		}
+	} else {
+		panic("Already have a value")
+	}
+}
+
+func (vh *defaultValueHandler) Type() reflect.Type {
 	return vh.t
 }
 
-func (vh *ValueHandler) Get(timeout time.Duration) ValueOrError {
+func (vh *defaultValueHandler) Get(timeout time.Duration) ValueOrError {
 	if timeout <= 0 {
 		return <-vh.valueChan
 	} else {
@@ -102,7 +141,8 @@ func (vh *ValueHandler) Get(timeout time.Duration) ValueOrError {
 	}
 }
 
-func (vh *ValueHandler) SelectValue(other *ValueHandler, timeout time.Duration) ValueOrError {
+func (vh *defaultValueHandler) SelectValue(ovh ValueHandler, timeout time.Duration) ValueOrError {
+	other := ovh.(*defaultValueHandler)
 	if timeout <= 0 {
 		select {
 		case v := <-vh.valueChan:
@@ -122,7 +162,8 @@ func (vh *ValueHandler) SelectValue(other *ValueHandler, timeout time.Duration) 
 	}
 }
 
-func (vh *ValueHandler) BothValue(other *ValueHandler, timeout time.Duration) (v1, v2 ValueOrError) {
+func (vh *defaultValueHandler) BothValue(ovh ValueHandler, timeout time.Duration) (v1, v2 ValueOrError) {
+	other := ovh.(*defaultValueHandler)
 	if timeout <= 0 {
 		s1, s2 := false, false
 		for {
