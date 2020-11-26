@@ -12,6 +12,16 @@ import (
 
 var CompletionStageType = reflect.TypeOf(*(*CompletionStage)())
 
+func CheckSupplyFunction(fn reflect.Type) error {
+	if fn.Kind() != reflect.Func {
+		return errors.New("Param is not a function. ")
+	}
+	if fn.NumIn() != 0 || fn.NumOut() != 1 {
+		return errors.New("Type must be f func() TYPE . in[0] Function must be 0 In 1 Out. ")
+	}
+	return nil
+}
+
 func CheckApplyFunction(fn reflect.Type, vType reflect.Type) error {
 	if fn.Kind() != reflect.Func {
 		return errors.New("Param is not a function. ")
@@ -106,7 +116,33 @@ func CheckHandleFunction(fn reflect.Type, vType reflect.Type) error {
 	}
 	inType := fn.In(0)
 	if inType != vType {
-		return errors.New("Type must be f func(o TYPE) CompletionStage. in[0] not match. ")
+		return errors.New("Type must be f func(o TYPE1, err interface{}) TYPE2. in[0] not match. ")
+	}
+
+	return nil
+}
+
+func CheckWhenCompleteFunction(fn reflect.Type, vType reflect.Type) error {
+	if fn.Kind() != reflect.Func {
+		return errors.New("Param is not a function. ")
+	}
+	if fn.NumIn() != 2 || fn.NumOut() != 0 {
+		return errors.New("Type must be f func(o TYPE1, err interface{}). number not match. ")
+	}
+	inType := fn.In(0)
+	if inType != vType {
+		return errors.New("Type must be f func(o TYPE1, err interface{}) . in[0] not match. ")
+	}
+
+	return nil
+}
+
+func CheckPanicFunction(fn reflect.Type) error {
+	if fn.Kind() != reflect.Func {
+		return errors.New("Param is not a function. ")
+	}
+	if fn.NumIn() != 1 || fn.NumOut() != 1 {
+		return errors.New("Type must be f func(o interface{}) TYPE. number not match. ")
 	}
 
 	return nil
@@ -117,6 +153,10 @@ func CheckPtr(v reflect.Type) error {
 		return errors.New("Not a pointer. ")
 	}
 	return nil
+}
+
+func RunSupply(fn reflect.Value) reflect.Value {
+	return fn.Call(nil)[0]
 }
 
 func RunApply(fn reflect.Value, v reflect.Value) reflect.Value {
@@ -141,4 +181,12 @@ func RunCompose(fn reflect.Value, v reflect.Value) reflect.Value {
 
 func RunHandle(fn reflect.Value, v1, v2 reflect.Value) reflect.Value {
 	return fn.Call([]reflect.Value{v1, v2})[0]
+}
+
+func RunWhenComplete(fn reflect.Value, v1, v2 reflect.Value) {
+	fn.Call([]reflect.Value{v1, v2})
+}
+
+func RunPanic(fn reflect.Value, v reflect.Value) reflect.Value {
+	return fn.Call([]reflect.Value{v})[0]
 }

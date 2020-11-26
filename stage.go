@@ -129,9 +129,9 @@ type CompletionStage interface {
 	ThenComposeAsync(f interface{}, executor ...executor.Executor) CompletionStage
 
 	// 捕获阶段异常，返回补偿结果
-	// Param：参数函数，参数：捕获的panic参数，返回补偿的结果
+	// Param：f func(o interface{}) TYPE参数函数，参数：捕获的panic参数，返回补偿的结果
 	// Return：新的CompletionStage
-	Panic(f func(o interface{}) interface{}) CompletionStage
+	Exceptionally(f interface{}) CompletionStage
 
 	// 阶段执行时获得结果或者panic,注意会继续传递panic
 	// Param：参数函数，f func(result Type, panic interface{}) 参数result：结果，参数panic：异常
