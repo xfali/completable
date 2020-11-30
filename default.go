@@ -9,9 +9,10 @@ import (
 	"context"
 	"errors"
 	"github.com/xfali/completable/functools"
-	"github.com/xfali/completable/v0.0.1"
+	completable "github.com/xfali/completable/v0.0.1"
 	"github.com/xfali/executor"
 	"reflect"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -44,11 +45,15 @@ type defaultCompletableFuture struct {
 	cancelFunc context.CancelFunc
 
 	status int32
+
+	lock   sync.Mutex
+	result ValueOrError
 }
 
 func newCf(pCtx context.Context, v *defaultValueHandler) *defaultCompletableFuture {
 	ret := &defaultCompletableFuture{
-		v: v,
+		v:      v,
+		result: nil,
 	}
 	if v != nil {
 		ret.vType = v.Type()
@@ -63,7 +68,8 @@ func newCf(pCtx context.Context, v *defaultValueHandler) *defaultCompletableFutu
 
 func newCfWithCancel(cCtx context.Context, cancelFunc context.CancelFunc, v *defaultValueHandler) *defaultCompletableFuture {
 	ret := &defaultCompletableFuture{
-		v: v,
+		v:      v,
+		result: nil,
 	}
 	if v != nil {
 		ret.vType = v.Type()
@@ -840,15 +846,23 @@ func (cf *defaultCompletableFuture) ThenComposeAsync(f interface{}, executor ...
 // 尝试获得ValueOrError
 // 此处还负责处理ComposeAsync封装的CompletableFuture，该设计可能不那么“优雅”
 func (cf *defaultCompletableFuture) getValue(ctx context.Context) ValueOrError {
+	cf.lock.Lock()
+	defer cf.lock.Unlock()
+
+	if cf.result != nil {
+		return cf.result
+	}
+
 	ve := cf.v.Get(ctx)
 	if ve.GetError() == nil {
 		v := ve.GetValue()
-		if v.IsValid() {
+		if v.IsValid() && !v.IsZero() {
 			if c, ok := v.Interface().(*composeCf); ok {
-				return c.cf.getValue(ctx)
+				ve = c.cf.getValue(ctx)
 			}
 		}
 	}
+	cf.result = ve
 	return ve
 }
 

@@ -245,7 +245,17 @@ func TestSupplyAsync(t *testing.T) {
 			return "Hello world"
 		})
 		ret := ""
-		cf.Get(&ret)
+		err := cf.Get(&ret)
+		t.Log("after get1: ",time.Now().Sub(now))
+		if err != nil {
+			t.Fatal(err)
+		}
+		// get twice
+		err = cf.Get(&ret)
+		t.Log("after get2: ",time.Now().Sub(now))
+		if err != nil {
+			t.Fatal(err)
+		}
 		if !cf.IsDone() {
 			t.Fatal("Must be done")
 		}
