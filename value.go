@@ -313,6 +313,47 @@ func (vh *defaultValueHandler) BothValue(ovh ValueHandler, ctx context.Context) 
 	}
 }
 
+func AllOfValue(ctx context.Context, vhs ...ValueHandler) []ValueOrError {
+	ret := make([]ValueOrError, len(vhs))
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	for i, vh := range vhs {
+		select {
+		case v := <-vh.(*defaultValueHandler).valueChan:
+			ret[i] = v
+		case <-ctx.Done():
+			ret[i] = newDone()
+		}
+	}
+	return ret
+}
+
+func AnyOfValue(ctx context.Context, vhs ...ValueHandler) (int, ValueOrError) {
+	size := len(vhs)
+	if ctx != nil {
+		size++
+	}
+	selectCases := make([]reflect.SelectCase, size)
+	if ctx != nil {
+		selectCases[len(vhs)] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(ctx.Done()),
+		}
+	}
+	for i, vh := range vhs {
+		selectCases[i] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(vh.(*defaultValueHandler).valueChan),
+		}
+	}
+	index, value, _ := reflect.Select(selectCases)
+	if index == len(vhs) {
+		return index, newDone()
+	}
+	return index, value.Interface().(ValueOrError)
+}
+
 var vOrErrMap = map[int32]int32{
 	vOrErrNone:   valueHandlerNone,
 	vOrErrNormal: valueHandlerNormal,

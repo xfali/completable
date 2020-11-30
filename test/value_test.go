@@ -263,6 +263,147 @@ func TestAsyncValueBoth(test *testing.T) {
 	})
 }
 
+func TestAllOfValue(test *testing.T) {
+	test.Run("ctx nil", func(test *testing.T) {
+		vhs := make([]completable.ValueHandler, 10)
+		for i := 0; i < 10; i++ {
+			vh := completable.NewSyncHandler(reflect.TypeOf(i))
+			if i != 2 {
+				vh.SetValue(reflect.ValueOf(i))
+			} else {
+				vh.SetPanic("error")
+			}
+			vhs[i] = vh
+		}
+		testAllOfValue(false, nil, test, vhs...)
+	})
+	test.Run("ctx background", func(test *testing.T) {
+		vhs := make([]completable.ValueHandler, 10)
+		for i := 0; i < 10; i++ {
+			vh := completable.NewAsyncHandler(reflect.TypeOf(i))
+			if i != 2 {
+				v := i
+				go func() {
+					time.Sleep(time.Duration(1+v) * time.Second)
+					vh.SetValue(reflect.ValueOf(v))
+				}()
+			} else {
+				go func() {
+					time.Sleep(time.Second)
+					vh.SetPanic("error")
+				}()
+			}
+			vhs[i] = vh
+		}
+		now := time.Now()
+		testAllOfValue(false, context.Background(), test, vhs...)
+		if time.Since(now) < 10*time.Second {
+			test.Fatal("not match")
+		}
+	})
+
+	test.Run("ctx cancel", func(test *testing.T) {
+		vhs := make([]completable.ValueHandler, 10)
+		ctx, cancel := context.WithCancel(context.Background())
+		for i := 0; i < 10; i++ {
+			vh := completable.NewAsyncHandler(reflect.TypeOf(i))
+			if i != 2 {
+				v := i
+				go func() {
+					time.Sleep(time.Duration(1+v) * time.Second)
+					vh.SetValue(reflect.ValueOf(v))
+				}()
+			} else {
+				go func() {
+					time.Sleep(time.Second)
+					vh.SetPanic("error")
+				}()
+			}
+			vhs[i] = vh
+		}
+		go func() {
+			time.Sleep(5 * time.Second)
+			cancel()
+		}()
+		now := time.Now()
+		testAllOfValue(true, ctx, test, vhs...)
+		if time.Since(now) > 6*time.Second {
+			test.Fatal("not match")
+		}
+	})
+}
+
+func TestAnyOfValue(test *testing.T) {
+	test.Run("ctx nil", func(test *testing.T) {
+		vhs := make([]completable.ValueHandler, 10)
+		for i := 0; i < 10; i++ {
+			vh := completable.NewSyncHandler(reflect.TypeOf(i))
+			if i != 2 {
+				vh.SetValue(reflect.ValueOf(i))
+			} else {
+				vh.SetPanic("error")
+			}
+			vhs[i] = vh
+		}
+		testAnyOfValue(false, nil, test, vhs...)
+	})
+	test.Run("ctx background", func(test *testing.T) {
+		vhs := make([]completable.ValueHandler, 10)
+		for i := 0; i < 10; i++ {
+			vh := completable.NewAsyncHandler(reflect.TypeOf(i))
+			if i != 2 {
+				v := i
+				go func() {
+					time.Sleep(time.Duration(1+v) * time.Second)
+					vh.SetValue(reflect.ValueOf(v))
+				}()
+			} else {
+				go func() {
+					time.Sleep(time.Second)
+					vh.SetPanic("error")
+				}()
+			}
+			vhs[i] = vh
+		}
+		now := time.Now()
+		testAnyOfValue(false, context.Background(), test, vhs...)
+		if time.Since(now) > 2*time.Second {
+			test.Fatal("not match")
+		}
+	})
+
+	test.Run("ctx cancel", func(test *testing.T) {
+		vhs := make([]completable.ValueHandler, 10)
+		ctx, cancel := context.WithCancel(context.Background())
+		for i := 0; i < 10; i++ {
+			vh := completable.NewAsyncHandler(reflect.TypeOf(i))
+			if i != 2 {
+				v := i
+				go func() {
+					time.Sleep(time.Duration(1+v) * time.Second)
+					vh.SetValue(reflect.ValueOf(v))
+				}()
+			} else {
+				go func() {
+					time.Sleep(time.Second)
+					vh.SetPanic("error")
+				}()
+			}
+			vhs[i] = vh
+		}
+
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cancel()
+		}()
+		now := time.Now()
+		testAnyOfValue(false, ctx, test, vhs...)
+		if time.Since(now) > 300*time.Millisecond {
+			test.Fatal("not match")
+		}
+	})
+}
+
 func testGet(vh completable.ValueHandler, ctx context.Context, test *testing.T) {
 	ret := vh.Get(ctx)
 	if !ret.HaveValue() {
@@ -408,6 +549,52 @@ func testSelectDone(sync bool, vh1, vh2 completable.ValueHandler, ctx context.Co
 	}
 }
 
+func testAllOfValue(cancel bool, ctx context.Context, test *testing.T, vhs ...completable.ValueHandler) {
+	vs := completable.AllOfValue(ctx, vhs...)
+	for i, v := range vs {
+		if i != 2 {
+			if i < 5 {
+				if !v.HaveValue() {
+					test.Fatal("not match")
+				}
+				ret := v.GetValue().Interface().(int)
+				if ret != i {
+					test.Fatal("not match", ret, i)
+				}
+			} else {
+				if !v.IsDone() {
+					test.Fatal("not match, must done")
+				}
+			}
+		} else {
+			if !v.HavePanic() {
+				test.Fatal("not match")
+			}
+		}
+	}
+}
+
+func testAnyOfValue(cancel bool, ctx context.Context, test *testing.T, vhs ...completable.ValueHandler) {
+	i, v := completable.AnyOfValue(ctx, vhs...)
+	if v.HaveValue() {
+		ret := v.GetValue().Interface().(int)
+		test.Log(ret)
+		if ret != i {
+			test.Fatal("not match")
+		}
+	}
+	if v.HavePanic() {
+
+	}
+}
+
+func testAllOfValueDone(sync bool, vh1, vh2 completable.ValueHandler, ctx context.Context, test *testing.T) {
+	ret := vh1.SelectValue(vh2, ctx)
+	if !ret.IsDone() {
+		test.Fatal("ret must be done")
+	}
+}
+
 func TestContext(t *testing.T) {
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	ctx2, cancel2 := context.WithCancel(context.Background())
@@ -444,4 +631,49 @@ func TestContext(t *testing.T) {
 		cancel34()
 	}
 	time.Sleep(time.Second)
+}
+
+func TestSelect(t *testing.T) {
+	var selectCases []reflect.SelectCase
+	var selectVals []chan int
+	for i := 0; i < 10; i++ {
+		v := make(chan int)
+		selectVals = append(selectVals, v)
+		selectCases = append(selectCases, reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(v),
+		})
+	}
+	t.Run("3 ok", func(t *testing.T) {
+		go func() {
+			time.Sleep(time.Second)
+			selectVals[3] <- 3
+		}()
+		i, value, ok := reflect.Select(selectCases)
+		if !ok {
+			t.Fatal("not match")
+		}
+		if i != 3 {
+			t.Fatal("not match")
+		}
+		if value.Interface().(int) != 3 {
+			t.Fatal("not match")
+		}
+	})
+	t.Run("3 close", func(t *testing.T) {
+		go func() {
+			time.Sleep(time.Second)
+			close(selectVals[3])
+		}()
+		i, value, ok := reflect.Select(selectCases)
+		if ok {
+			t.Fatal("not match")
+		}
+		if i != 3 {
+			t.Fatal("not match")
+		}
+		if !value.IsZero() {
+			t.Fatal("not match")
+		}
+	})
 }

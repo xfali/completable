@@ -12,6 +12,132 @@ import (
 	"time"
 )
 
+func TestCompletedFuture(t *testing.T) {
+	t.Run("normal", func(t *testing.T) {
+		cf := completable.CompletedFuture("Hello world").ThenAccept(func(s string) {
+			if s != "Hello world" {
+				t.Fatal("not match")
+			}
+		})
+		cf.Get(nil)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+	})
+
+	//t.Run("nil", func(t *testing.T) {
+	//	cf := completable.CompletedFuture(nil).ThenAccept(func(s string) {
+	//		if s != "Hello world" {
+	//			t.Fatal("not match")
+	//		}
+	//	})
+	//	cf.Get(nil)
+	//	if !cf.IsDone() {
+	//		t.Fatal("Must be done")
+	//	}
+	//})
+}
+
+func TestAllOf(t *testing.T) {
+	t.Run("normal", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.AllOf(completable.SupplyAsync(func() int {
+			time.Sleep(2 * time.Second)
+			return 1
+		}), completable.SupplyAsync(func() int {
+			time.Sleep(1 * time.Second)
+			return 1
+		}), completable.SupplyAsync(func() int {
+			time.Sleep(3 * time.Second)
+			return 1
+		}))
+		cf.Get(nil)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+		useTime := time.Since(now)
+		if useTime < 1*time.Second || useTime > 4*time.Second {
+			t.Fatal("must 3 second")
+		}
+	})
+
+	//t.Run("normal cancel", func(t *testing.T) {
+	//	now := time.Now()
+	//	cf := completable.AllOf(completable.SupplyAsync(func() int {
+	//		time.Sleep(2 * time.Second)
+	//		return 1
+	//	}), completable.SupplyAsync(func() int {
+	//		time.Sleep(1 * time.Second)
+	//		return 1
+	//	}), completable.SupplyAsync(func() int {
+	//		time.Sleep(3 * time.Second)
+	//		return 1
+	//	}))
+	//	go func() {
+	//		time.Sleep(2 * time.Second)
+	//		cf.Cancel()
+	//	}()
+	//	cf.Get(nil)
+	//	if !cf.IsDone() {
+	//		t.Fatal("Must be done")
+	//	}
+	//	useTime := time.Since(now)
+	//	if useTime < 1*time.Second || useTime > 2100*time.Millisecond {
+	//		t.Fatal("must between 1 - 2 second")
+	//	}
+	//})
+}
+
+func TestAnyOf(t *testing.T) {
+	t.Run("normal", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.AnyOf(completable.SupplyAsync(func() int {
+			time.Sleep(2 * time.Second)
+			return 1
+		}), completable.SupplyAsync(func() int {
+			time.Sleep(1 * time.Second)
+			return 1
+		}), completable.SupplyAsync(func() int {
+			time.Sleep(3 * time.Second)
+			return 1
+		}))
+		cf.Get(nil)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+		useTime := time.Since(now)
+		if useTime < 1*time.Second || useTime > 1100*time.Millisecond {
+			t.Fatal("must  1 second")
+		}
+	})
+
+	//t.Run("cancel", func(t *testing.T) {
+	//	now := time.Now()
+	//	cf := completable.AnyOf(completable.SupplyAsync(func() int {
+	//		time.Sleep(2 * time.Second)
+	//		return 1
+	//	}), completable.SupplyAsync(func() int {
+	//		time.Sleep(1 * time.Second)
+	//		return 1
+	//	}), completable.SupplyAsync(func() int {
+	//		time.Sleep(3 * time.Second)
+	//		return 1
+	//	}))
+	//	go func() {
+	//		time.Sleep(200 * time.Millisecond)
+	//		cf.Cancel()
+	//	}()
+	//	cf.Get(nil)
+	//	if !cf.IsDone() {
+	//		t.Fatal("Must be done")
+	//	}
+	//	useTime := time.Since(now)
+	//	if useTime > 290*time.Millisecond {
+	//		t.Fatal("must  200 mill")
+	//	}
+	//})
+}
+
 func TestRunAsync(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		now := time.Now()

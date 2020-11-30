@@ -1181,6 +1181,32 @@ type composeCf struct {
 
 var composeCfType = reflect.TypeOf((*composeCf)(nil))
 
+func CompletedFuture(value interface{}) (retCf CompletionStage) {
+	var v reflect.Value
+	var t reflect.Type
+	if value == nil {
+		// FIXME: nil value not support
+		panic("Cannot be here now")
+		v = NilValue
+		t = NilType
+	} else {
+		v = reflect.ValueOf(value)
+		t = v.Type()
+	}
+
+	vh := NewSyncHandler(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	retCf = newCfWithCancel(ctx, cancel, vh)
+
+	defer retCf.(*defaultCompletableFuture).setDone()
+
+	err := vh.SetValue(v)
+	if err != nil {
+		vh.SetPanic(err)
+	}
+	return
+}
+
 func SupplyAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	fnValue := reflect.ValueOf(f)
 	if err := functools.CheckSupplyFunction(fnValue.Type()); err != nil {
@@ -1225,6 +1251,49 @@ func RunAsync(f func(), executor ...executor.Executor) (retCf CompletionStage) {
 	})
 	if err != nil {
 		panic(err)
+	}
+	return
+}
+
+func AllOf(cfs ...CompletionStage) (retCf CompletionStage) {
+	vh := NewSyncHandler(NilType)
+	cancellers := make([]context.CancelFunc, 0, len(cfs))
+	vhs := make([]ValueHandler, 0, len(cfs))
+	for _, cf := range cfs {
+		vhs = append(vhs, cf.(*defaultCompletableFuture).v)
+		cancellers = append(cancellers, cf.(*defaultCompletableFuture).cancelFunc)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	retCf = newCfWithCancel(ctx, func() {
+		cancel()
+		for _, cancelFunc := range cancellers {
+			cancelFunc()
+		}
+	}, vh)
+
+	AllOfValue(ctx, vhs...)
+	err := vh.SetValue(NilValue)
+	if err != nil {
+		vh.SetPanic(err)
+	}
+	return
+}
+
+func AnyOf(cfs ...CompletionStage) (retCf CompletionStage) {
+	vh := NewSyncHandler(NilType)
+	vhs := make([]ValueHandler, 0, len(cfs))
+	for _, cf := range cfs {
+		vhs = append(vhs, cf.(*defaultCompletableFuture).v)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	retCf = newCfWithCancel(ctx, func() {
+		cancel()
+	}, vh)
+
+	AnyOfValue(ctx, vhs...)
+	err := vh.SetValue(NilValue)
+	if err != nil {
+		vh.SetPanic(err)
 	}
 	return
 }
