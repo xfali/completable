@@ -409,8 +409,8 @@ func testSelectDone(sync bool, vh1, vh2 completable.ValueHandler, ctx context.Co
 }
 
 func TestContext(t *testing.T) {
-	ctx1, _ := context.WithCancel(context.Background())
-	ctx2, _ := context.WithCancel(context.Background())
+	ctx1, cancel1 := context.WithCancel(context.Background())
+	ctx2, cancel2 := context.WithCancel(context.Background())
 
 	ctx3, cancel3 := context.WithCancel(ctx1)
 	ctx4, cancel4 := context.WithCancel(ctx2)
@@ -429,11 +429,19 @@ func TestContext(t *testing.T) {
 		}
 	}()
 
-	cancelx := func() {
+	cancel12 := func() {
+		cancel1()
+		cancel2()
+	}
+	cancel34 := func() {
 		cancel3()
 		cancel4()
 	}
 	time.Sleep(time.Second)
-	cancelx()
+	if true {
+		cancel12()
+	} else {
+		cancel34()
+	}
 	time.Sleep(time.Second)
 }

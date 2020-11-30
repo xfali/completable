@@ -13,26 +13,86 @@ import (
 )
 
 func TestRunAsync(t *testing.T) {
-	now := time.Now()
-	cf := completable.RunAsync(func() {
-		time.Sleep(1 * time.Second)
-		t.Log(time.Now().Sub(now), "Hello World")
+	t.Run("normal", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.RunAsync(func() {
+			time.Sleep(1 * time.Second)
+			t.Log(time.Now().Sub(now), "Hello World")
+		})
+		cf.Get(nil)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
 	})
-	cf.Get(nil)
+
+	t.Run("with cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.RunAsync(func() {
+			time.Sleep(1 * time.Second)
+			t.Log(time.Now().Sub(now), "Hello World")
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		cf.Get(nil)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
 }
 
 func TestSupplyAsync(t *testing.T) {
-	now := time.Now()
-	cf := completable.SupplyAsync(func() string {
-		time.Sleep(1 * time.Second)
-		return "Hello world"
+	t.Run("normal", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello world"
+		})
+		ret := ""
+		cf.Get(&ret)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if ret != "Hello world" {
+			t.Fatal("not match")
+		}
 	})
-	ret := ""
-	cf.Get(&ret)
-	t.Log(time.Now().Sub(now), ret)
-	if ret != "Hello world" {
-		t.Fatal("not match")
-	}
+
+	t.Run("with cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello world"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(err, ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret == "Hello world" {
+			t.Fatal("not match")
+		}
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
 }
 
 func TestThenApply(t *testing.T) {
@@ -46,9 +106,42 @@ func TestThenApply(t *testing.T) {
 		})
 		ret := ""
 		cf.Get(&ret)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
 		t.Log(time.Now().Sub(now), ret)
 		if ret != "Hello world" {
 			t.Fatal("not match")
+		}
+	})
+	t.Run("sync with cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.ThenApply(func(o string) string {
+			return o + " world"
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if ret == "Hello world" {
+			t.Fatal("not match")
+		}
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
 		}
 	})
 	t.Run("async", func(t *testing.T) {
@@ -62,9 +155,44 @@ func TestThenApply(t *testing.T) {
 			return o + " world"
 		})
 		cf.Get(&ret)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
 		t.Log(time.Now().Sub(now), ret)
 		if ret != "Hello world" {
 			t.Fatal("not match")
+		}
+	})
+
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).ThenApplyAsync(func(o string) string {
+			time.Sleep(1 * time.Second)
+			return o + " world"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+
+		ret := ""
+		err := cf.Get(&ret)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if ret == "Hello world" {
+			t.Fatal("not match")
+		}
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
 		}
 	})
 }
@@ -85,6 +213,36 @@ func TestThenAccept(t *testing.T) {
 		cf.Get(nil)
 		t.Log(time.Now().Sub(now))
 	})
+
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello world"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.ThenAccept(func(o string) {
+			if o != "Hello world" {
+				t.Fatal("not match")
+			} else {
+				t.Log(o)
+			}
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
+
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		cf := completable.SupplyAsync(func() string {
@@ -100,6 +258,34 @@ func TestThenAccept(t *testing.T) {
 		cf.Get(nil)
 		t.Log(time.Now().Sub(now))
 	})
+
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello world"
+		}).ThenAcceptAsync(func(o string) {
+			if o != "Hello world" {
+				t.Fatal("not match")
+			} else {
+				t.Log(o)
+			}
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(err, ret)
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
 }
 
 func TestThenRun(t *testing.T) {
@@ -114,6 +300,30 @@ func TestThenRun(t *testing.T) {
 		cf.Get(nil)
 		t.Log(time.Now().Sub(now))
 	})
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello world"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.ThenRun(func() {
+			t.Log("in", time.Now().Sub(now))
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		cf := completable.SupplyAsync(func() string {
@@ -124,6 +334,30 @@ func TestThenRun(t *testing.T) {
 		})
 		cf.Get(nil)
 		t.Log(time.Now().Sub(now))
+	})
+
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello world"
+		}).ThenRunAsync(func() {
+			t.Log("in", time.Now().Sub(now))
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
 	})
 }
 
@@ -149,6 +383,41 @@ func TestThenCombine(t *testing.T) {
 			t.Fatal("not match")
 		}
 	})
+
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.ThenCombine(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func(s1, s2 string) string {
+			if time.Since(now) < 2*time.Second {
+				t.Fatal("not match")
+			}
+			return s1 + s2
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if ret == "Hello world" {
+			t.Fatal("not match")
+		}
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
+
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -168,6 +437,39 @@ func TestThenCombine(t *testing.T) {
 		t.Log(time.Now().Sub(now), ret)
 		if ret != "Hello world" {
 			t.Fatal("not match")
+		}
+	})
+
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).ThenCombineAsync(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func(s1, s2 string) string {
+			if time.Since(now) < 2*time.Second {
+				t.Fatal("not match")
+			}
+			return s1 + s2
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if ret == "Hello world" {
+			t.Fatal("not match")
+		}
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
 		}
 	})
 }
@@ -193,6 +495,40 @@ func TestAcceptBoth(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 	})
+
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.ThenAcceptBoth(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func(s1, s2 string) {
+			if s1+s2 != "Hello world" {
+				t.Fatal("not match")
+			}
+			if time.Since(now) < 2*time.Second {
+				t.Fatal("not match")
+			}
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
+
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -212,6 +548,38 @@ func TestAcceptBoth(t *testing.T) {
 		})
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
+	})
+
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).ThenAcceptBothAsync(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func(s1, s2 string) {
+			if s1+s2 != "Hello world" {
+				t.Fatal("not match")
+			}
+			if time.Since(now) < 2*time.Second {
+				t.Fatal("not match")
+			}
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
 	})
 }
 
@@ -233,6 +601,37 @@ func TestRunAfterBoth(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 	})
+
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.RunAfterBoth(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func() {
+			if time.Since(now) < 2*time.Second {
+				t.Fatal("not match")
+			}
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
+
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -249,6 +648,35 @@ func TestRunAfterBoth(t *testing.T) {
 		})
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
+	})
+
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).RunAfterBothAsync(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func() {
+			if time.Since(now) < 2*time.Second {
+				t.Fatal("not match")
+			}
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
 	})
 }
 
@@ -271,6 +699,38 @@ func TestApplyEither(t *testing.T) {
 			t.Fatal("not match")
 		}
 	})
+
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.ApplyToEither(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func(s string) string {
+			return s
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+		if ret == "Hello" {
+			t.Fatal("not match")
+		}
+	})
+
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -286,6 +746,36 @@ func TestApplyEither(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 		if ret != "Hello" {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).ApplyToEitherAsync(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func(s string) string {
+			return s
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+		if ret == "Hello" {
 			t.Fatal("not match")
 		}
 	})
@@ -310,8 +800,40 @@ func TestAcceptEither(t *testing.T) {
 		})
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
-
 	})
+
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.AcceptEither(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func(s string) {
+			if s != "Hello" {
+				t.Fatal("not match")
+			} else {
+				t.Log(s)
+			}
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
+
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -330,6 +852,37 @@ func TestAcceptEither(t *testing.T) {
 		})
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
+	})
+
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).AcceptEitherAsync(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func(s string) {
+			if s != "Hello" {
+				t.Fatal("not match")
+			} else {
+				t.Log(s)
+			}
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
 	})
 }
 
@@ -355,6 +908,40 @@ func TestRunEither(t *testing.T) {
 		t.Log(time.Now().Sub(now), ret)
 
 	})
+
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.RunAfterEither(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func() {
+			x := time.Since(now)
+			if time.Second <= x && x < 2*time.Second {
+				t.Log(x)
+			} else {
+				t.Fatal("not match")
+			}
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
+
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -374,6 +961,38 @@ func TestRunEither(t *testing.T) {
 		})
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
+	})
+
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).RunAfterEitherAsync(completable.SupplyAsync(func() string {
+			time.Sleep(2 * time.Second)
+			return " world"
+		}), func() {
+			x := time.Since(now)
+			if time.Second <= x && x < 2*time.Second {
+				t.Log(x)
+			} else {
+				t.Fatal("not match")
+			}
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
 	})
 }
 
@@ -399,6 +1018,41 @@ func TestCompose(t *testing.T) {
 			t.Fatal("not match")
 		}
 	})
+
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.ThenCompose(func(s string) completable.CompletionStage {
+			t.Log(s)
+			if s != "Hello" {
+				t.Fatal("not match")
+			}
+			return completable.SupplyAsync(func() string {
+				return "world"
+			})
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+		if ret == "world" {
+			t.Fatal("not match")
+		}
+	})
+
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -417,6 +1071,39 @@ func TestCompose(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 		if ret != "world" {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).ThenComposeAsync(func(s string) completable.CompletionStage {
+			t.Log(s)
+			if s != "Hello" {
+				t.Fatal("not match")
+			}
+			return completable.SupplyAsync(func() string {
+				return "world"
+			})
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+		if ret == "world" {
 			t.Fatal("not match")
 		}
 	})
@@ -441,6 +1128,36 @@ func TestExceptionally(t *testing.T) {
 		}
 	})
 
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			panic("error!")
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.Exceptionally(func(o interface{}) string {
+			t.Log(o)
+			return "world"
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+		if ret == "world" {
+			t.Fatal("not match")
+		}
+	})
+
 	t.Run("sync no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -454,6 +1171,35 @@ func TestExceptionally(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 		if ret != "Hello" {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("sync no panic cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.Exceptionally(func(o interface{}) string {
+			t.Log(o)
+			return "world"
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+		if ret == "Hello" {
 			t.Fatal("not match")
 		}
 	})
@@ -477,6 +1223,36 @@ func TestWhenComplete(t *testing.T) {
 		t.Log(time.Now().Sub(now), ret)
 	})
 
+	t.Run("sync cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			panic("error")
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.WhenComplete(func(s string, panic interface{}) {
+			t.Log(panic)
+			//have been cancelled
+			//if s != "" || panic.(string) != "error" {
+			//	t.Fatal("not match")
+			//}
+		})
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
+
 	t.Run("sync no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -491,6 +1267,35 @@ func TestWhenComplete(t *testing.T) {
 		})
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
+	})
+
+	t.Run("sync no panic cancel", func(t *testing.T) {
+		now := time.Now()
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.WhenComplete(func(s string, panic interface{}) {
+			t.Log(s, panic)
+			//if s != "Hello" || panic != nil {
+			//	t.Fatal("not match")
+			//}
+		})
+
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
 	})
 
 	t.Run("async", func(t *testing.T) {
@@ -510,6 +1315,34 @@ func TestWhenComplete(t *testing.T) {
 		t.Log(time.Now().Sub(now), ret)
 	})
 
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			panic("error")
+			return "Hello"
+		}).WhenCompleteAsync(func(s string, panic interface{}) {
+			t.Log(s, panic)
+			//if s != "" || panic.(string) != "error" {
+			//	t.Fatal("not match")
+			//}
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+	})
+
 	t.Run("async no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
@@ -524,6 +1357,33 @@ func TestWhenComplete(t *testing.T) {
 		})
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
+	})
+
+	t.Run("async no panic cancel", func(t *testing.T) {
+		now := time.Now()
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).WhenCompleteAsync(func(s string, panic interface{}) {
+			t.Log(s, panic)
+			//if s != "Hello" || panic != nil {
+			//	t.Fatal("not match")
+			//}
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		ret := ""
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
 	})
 }
 
@@ -555,6 +1415,45 @@ func TestHandle(t *testing.T) {
 		}
 	})
 
+	t.Run("sync panic cancel", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			panic("error")
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.Handle(func(s string, panic interface{}) int {
+			t.Log(panic)
+			//if s != "" || panic.(string) != "error" {
+			//	t.Fatal("not match")
+			//}
+			if s != "" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+		if ret == 2 {
+			t.Fatal("not match")
+		}
+	})
+
 	t.Run("sync no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
@@ -577,6 +1476,44 @@ func TestHandle(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 		if ret != 1 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("sync no panic cancel", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+		origin := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			origin.Cancel()
+		}()
+		cf := origin.Handle(func(s string, panic interface{}) int {
+			t.Log(panic)
+			//if s != "Hello" || panic != nil {
+			//	t.Fatal("not match")
+			//}
+			if s != "" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+		if ret == 1 {
 			t.Fatal("not match")
 		}
 	})
@@ -608,6 +1545,44 @@ func TestHandle(t *testing.T) {
 		}
 	})
 
+	t.Run("async cancel", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			panic("error")
+			return "Hello"
+		}).HandleAsync(func(s string, panic interface{}) int {
+			t.Log(s, panic)
+			//if s != "" || panic.(string) != "error" {
+			//	t.Fatal("not match")
+			//}
+			if s != "" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+		if ret == 2 {
+			t.Fatal("not match")
+		}
+	})
+
 	t.Run("async no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
@@ -633,6 +1608,43 @@ func TestHandle(t *testing.T) {
 			t.Fatal("not match")
 		}
 	})
+
+	t.Run("async no panic cancel", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).HandleAsync(func(s string, panic interface{}) int {
+			t.Log(s, panic)
+			//if s != "" || panic.(string) != "error" {
+			//	t.Fatal("not match")
+			//}
+			if s != "" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.Cancel()
+		}()
+		err := cf.Get(&ret)
+		t.Log(err, ret)
+		if !cf.IsCancelled() {
+			t.Fatal("must be cancelled")
+		}
+		t.Log(time.Now().Sub(now), ret)
+		if time.Since(now) >= 1*time.Second {
+			t.Fatal("have be cancelled less 1 second")
+		}
+		if ret == 1 {
+			t.Fatal("not match")
+		}
+	})
 }
 
 func TestComplete(t *testing.T) {
@@ -646,7 +1658,7 @@ func TestComplete(t *testing.T) {
 			return "Hello"
 		})
 		go func() {
-			time.Sleep(200*time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			cf.Complete("complete")
 		}()
 		cf = cf.Handle(func(s string, panic interface{}) int {
@@ -678,7 +1690,7 @@ func TestComplete(t *testing.T) {
 			return "Hello"
 		})
 		go func() {
-			time.Sleep(200*time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			cf.Complete("complete")
 		}()
 		cf = cf.Handle(func(s string, panic interface{}) int {
@@ -712,7 +1724,7 @@ func TestComplete(t *testing.T) {
 			return "Hello"
 		})
 		go func() {
-			time.Sleep(200*time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			fmt.Println("done2")
 			cf.Complete("complete")
 		}()
@@ -746,7 +1758,7 @@ func TestComplete(t *testing.T) {
 			return "Hello"
 		})
 		go func() {
-			time.Sleep(200*time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			fmt.Println("done2")
 			cf.Complete("complete")
 		}()
@@ -782,7 +1794,7 @@ func TestCompleteExceptionally(t *testing.T) {
 			return "Hello"
 		})
 		go func() {
-			time.Sleep(200*time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			cf.CompleteExceptionally("complete")
 		}()
 		cf = cf.Handle(func(s string, panic interface{}) int {
@@ -814,7 +1826,7 @@ func TestCompleteExceptionally(t *testing.T) {
 			return "Hello"
 		})
 		go func() {
-			time.Sleep(200*time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			cf.CompleteExceptionally("complete")
 		}()
 		cf = cf.Handle(func(s string, panic interface{}) int {
@@ -847,7 +1859,7 @@ func TestCompleteExceptionally(t *testing.T) {
 			return "Hello"
 		})
 		go func() {
-			time.Sleep(200*time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			cf.CompleteExceptionally("complete")
 		}()
 		cf2 := cf.HandleAsync(func(s string, panic interface{}) int {
@@ -879,7 +1891,7 @@ func TestCompleteExceptionally(t *testing.T) {
 			return "Hello"
 		})
 		go func() {
-			time.Sleep(200*time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 			cf.CompleteExceptionally("complete")
 		}()
 		cf2 := cf.HandleAsync(func(s string, panic interface{}) int {
