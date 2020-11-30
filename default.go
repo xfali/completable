@@ -1271,7 +1271,12 @@ func AllOf(cfs ...CompletionStage) (retCf CompletionStage) {
 		}
 	}, vh)
 
-	AllOfValue(ctx, vhs...)
+	rets := AllOfValue(ctx, vhs...)
+	for _, v := range rets {
+		if v.HavePanic() {
+			panic(v.GetPanic())
+		}
+	}
 	err := vh.SetValue(NilValue)
 	if err != nil {
 		vh.SetPanic(err)
@@ -1290,7 +1295,10 @@ func AnyOf(cfs ...CompletionStage) (retCf CompletionStage) {
 		cancel()
 	}, vh)
 
-	AnyOfValue(ctx, vhs...)
+	_, ve := AnyOfValue(ctx, vhs...)
+	if ve.HavePanic() {
+		panic(ve.GetPanic())
+	}
 	err := vh.SetValue(NilValue)
 	if err != nil {
 		vh.SetPanic(err)

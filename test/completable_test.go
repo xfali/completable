@@ -61,6 +61,37 @@ func TestAllOf(t *testing.T) {
 		}
 	})
 
+	t.Run("panic", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Log("Panic!", r)
+				if r.(string) != "error on 2" {
+					t.Fatal("not match")
+				}
+			}
+		}()
+		now := time.Now()
+		cf := completable.AllOf(completable.SupplyAsync(func() int {
+			time.Sleep(2 * time.Second)
+			panic("error on 2")
+			return 1
+		}), completable.SupplyAsync(func() int {
+			time.Sleep(1 * time.Second)
+			return 1
+		}), completable.SupplyAsync(func() int {
+			time.Sleep(3 * time.Second)
+			return 1
+		}))
+		cf.Get(nil)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+		useTime := time.Since(now)
+		if useTime < 1*time.Second || useTime > 4*time.Second {
+			t.Fatal("must 3 second")
+		}
+	})
+
 	//t.Run("normal cancel", func(t *testing.T) {
 	//	now := time.Now()
 	//	cf := completable.AllOf(completable.SupplyAsync(func() int {
@@ -96,6 +127,38 @@ func TestAnyOf(t *testing.T) {
 			return 1
 		}), completable.SupplyAsync(func() int {
 			time.Sleep(1 * time.Second)
+			return 1
+		}), completable.SupplyAsync(func() int {
+			time.Sleep(3 * time.Second)
+			return 1
+		}))
+		cf.Get(nil)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+		useTime := time.Since(now)
+		if useTime < 1*time.Second || useTime > 1100*time.Millisecond {
+			t.Fatal("must  1 second")
+		}
+	})
+
+	t.Run("panic", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r != nil {
+				t.Log("Panic!", r)
+				if r.(string) != "1 second panic" {
+					t.Fatal("not match")
+				}
+			}
+		}()
+		now := time.Now()
+		cf := completable.AnyOf(completable.SupplyAsync(func() int {
+			time.Sleep(2 * time.Second)
+			panic("2 second panic")
+			return 1
+		}), completable.SupplyAsync(func() int {
+			time.Sleep(1 * time.Second)
+			panic("1 second panic")
 			return 1
 		}), completable.SupplyAsync(func() int {
 			time.Sleep(3 * time.Second)

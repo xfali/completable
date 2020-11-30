@@ -553,17 +553,23 @@ func testAllOfValue(cancel bool, ctx context.Context, test *testing.T, vhs ...co
 	vs := completable.AllOfValue(ctx, vhs...)
 	for i, v := range vs {
 		if i != 2 {
-			if i < 5 {
+			if cancel {
+				if i < 4 {
+					if !v.HaveValue() {
+						test.Fatal("not match")
+					}
+					ret := v.GetValue().Interface().(int)
+					if ret != i {
+						test.Fatal("not match", ret, i)
+					}
+				}
+			} else {
 				if !v.HaveValue() {
 					test.Fatal("not match")
 				}
 				ret := v.GetValue().Interface().(int)
 				if ret != i {
 					test.Fatal("not match", ret, i)
-				}
-			} else {
-				if !v.IsDone() {
-					test.Fatal("not match, must done")
 				}
 			}
 		} else {

@@ -156,5 +156,6 @@ type CompletionStage interface {
 	HandleAsync(f interface{}, executor ...executor.Executor) CompletionStage
 
 	Completable
+
 	Future
 }
