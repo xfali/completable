@@ -1340,3 +1340,14 @@ func checkComposeFunction(fn reflect.Type, vType reflect.Type) error {
 	}
 	return nil
 }
+
+type UnlimitedExecutor struct{}
+
+func (ue UnlimitedExecutor) Run(task executor.Task) error {
+	go task()
+	return nil
+}
+
+func (ue UnlimitedExecutor) Stop() {
+
+}
