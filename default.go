@@ -9,7 +9,6 @@ import (
 	"context"
 	"errors"
 	"github.com/xfali/completable/functools"
-	completable "github.com/xfali/completable/v0.0.1"
 	"github.com/xfali/executor"
 	"reflect"
 	"sync"
@@ -1320,7 +1319,7 @@ func AnyOf(cfs ...CompletionStage) (retCf CompletionStage) {
 	return
 }
 
-var completionStageType = reflect.TypeOf((*completable.CompletionStage)(nil)).Elem()
+var completionStageType = reflect.TypeOf((*CompletionStage)(nil)).Elem()
 
 func checkComposeFunction(fn reflect.Type, vType reflect.Type) error {
 	if fn.Kind() != reflect.Func {
@@ -1335,7 +1334,7 @@ func checkComposeFunction(fn reflect.Type, vType reflect.Type) error {
 	}
 
 	outType := fn.Out(0)
-	if outType.Implements(completionStageType) {
+	if outType != completionStageType && !outType.Implements(completionStageType) {
 		return errors.New("Type must be f func(o TYPE) CompletionStage. out[0] not match. ")
 	}
 	return nil
