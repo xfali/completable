@@ -298,11 +298,11 @@ func (vh *defaultValueHandler) BothValue(ovh ValueHandler, ctx context.Context) 
 			case v2 = <-other.valueChan:
 				b2 = true
 			case <-ctx.Done():
-				if b1 == true {
-					v2 = newDone()
-				}
-				if b2 == true {
+				if !b1 {
 					v1 = newDone()
+				}
+				if !b2 {
+					v2 = newDone()
 				}
 				return
 			}

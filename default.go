@@ -91,7 +91,7 @@ func (cf *defaultCompletableFuture) ThenApply(applyFunc interface{}) (retCf Comp
 	retCf = newCf(cf.ctx, vh)
 	defer handlePanic(vh)
 
-	ve := cf.getValue(nil)
+	ve := cf.getValue(cf.ctx)
 	if !ve.HaveValue() {
 		vh.SetValueOrError(ve.Clone())
 		return
@@ -121,7 +121,7 @@ func (cf *defaultCompletableFuture) ThenApplyAsync(applyFunc interface{}, execut
 	err := exec.Run(func() {
 		defer handlePanic(vh)
 		defer cf.setDone()
-		ve := cf.getValue(nil)
+		ve := cf.getValue(cf.ctx)
 		if !ve.HaveValue() {
 			vh.SetValueOrError(ve.Clone())
 			return
@@ -152,7 +152,7 @@ func (cf *defaultCompletableFuture) ThenAccept(acceptFunc interface{}) (retCf Co
 	vh := NewSyncHandler(NilType)
 	retCf = newCf(cf.ctx, vh)
 	defer handlePanic(vh)
-	ve := cf.getValue(nil)
+	ve := cf.getValue(cf.ctx)
 	if !ve.HaveValue() {
 		vh.SetValueOrError(ve.Clone())
 		return
@@ -180,7 +180,7 @@ func (cf *defaultCompletableFuture) ThenAcceptAsync(acceptFunc interface{}, exec
 	err := exec.Run(func() {
 		defer handlePanic(vh)
 		defer cf.setDone()
-		ve := cf.getValue(nil)
+		ve := cf.getValue(cf.ctx)
 		if !ve.HaveValue() {
 			vh.SetValueOrError(ve.Clone())
 			return
@@ -204,7 +204,7 @@ func (cf *defaultCompletableFuture) ThenRun(runnable func()) (retCf CompletionSt
 	vh := NewSyncHandler(NilType)
 	retCf = newCf(cf.ctx, vh)
 	defer handlePanic(vh)
-	ve := cf.getValue(nil)
+	ve := cf.getValue(cf.ctx)
 	if !ve.HaveValue() {
 		vh.SetValueOrError(ve.Clone())
 		return
@@ -228,7 +228,7 @@ func (cf *defaultCompletableFuture) ThenRunAsync(runnable func(), executor ...ex
 	err := exec.Run(func() {
 		defer handlePanic(vh)
 		defer cf.setDone()
-		ve := cf.getValue(nil)
+		ve := cf.getValue(cf.ctx)
 		if !ve.HaveValue() {
 			vh.SetValueOrError(ve.Clone())
 			return
@@ -739,7 +739,7 @@ func (cf *defaultCompletableFuture) ThenCompose(f interface{}) (retCf Completion
 	vh := NewSyncHandler(NilType)
 	retCf = newCf(cf.ctx, vh)
 	defer handlePanic(vh)
-	ve := cf.getValue(nil)
+	ve := cf.getValue(cf.ctx)
 	if !ve.HaveValue() {
 		vh.SetValueOrError(ve.Clone())
 		return
@@ -778,7 +778,7 @@ func (cf *defaultCompletableFuture) ThenComposeAsync(f interface{}, executor ...
 	err := exec.Run(func() {
 		defer handlePanic(vh)
 		defer cf.setDone()
-		ve := cf.getValue(nil)
+		ve := cf.getValue(cf.ctx)
 		if !ve.HaveValue() {
 			vh.SetValueOrError(ve.Clone())
 			return
@@ -830,7 +830,7 @@ func (cf *defaultCompletableFuture) Exceptionally(f interface{}) (retCf Completi
 	vh := NewSyncHandler(fnValue.Type().Out(0))
 	retCf = newCf(cf.ctx, vh)
 	defer handlePanic(vh)
-	ve := cf.getValue(nil)
+	ve := cf.getValue(cf.ctx)
 	if ve.HaveValue() {
 		err := vh.SetValue(ve.GetValue())
 		if err != nil {
@@ -864,7 +864,7 @@ func (cf *defaultCompletableFuture) WhenComplete(f interface{}) (retCf Completio
 	vh := NewSyncHandler(NilType)
 	retCf = newCf(cf.ctx, vh)
 	defer handlePanic(vh)
-	ve := cf.getValue(nil)
+	ve := cf.getValue(cf.ctx)
 	v := ve.GetValue()
 	if !v.IsValid() {
 		v = reflect.New(cf.vType).Elem()
@@ -898,7 +898,7 @@ func (cf *defaultCompletableFuture) WhenCompleteAsync(f interface{}, executor ..
 	err := exec.Run(func() {
 		defer handlePanic(vh)
 
-		ve := cf.getValue(nil)
+		ve := cf.getValue(cf.ctx)
 		v := ve.GetValue()
 		if !v.IsValid() {
 			v = reflect.New(cf.vType).Elem()
@@ -932,7 +932,7 @@ func (cf *defaultCompletableFuture) Handle(f interface{}) (retCf CompletionStage
 	vh := NewSyncHandler(fnValue.Type().Out(0))
 	retCf = newCf(cf.ctx, vh)
 	defer handlePanic(vh)
-	ve := cf.getValue(nil)
+	ve := cf.getValue(cf.ctx)
 	v := ve.GetValue()
 	if !v.IsValid() {
 		v = reflect.New(cf.vType).Elem()
@@ -970,7 +970,7 @@ func (cf *defaultCompletableFuture) HandleAsync(f interface{}, executor ...execu
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
 		defer handlePanic(vh)
-		ve := cf.getValue(nil)
+		ve := cf.getValue(cf.ctx)
 		v := ve.GetValue()
 		if !v.IsValid() {
 			v = reflect.New(cf.vType).Elem()
@@ -1037,7 +1037,7 @@ func (cf *defaultCompletableFuture) Get(result interface{}, timeout ...time.Dura
 		ctx, _ := context.WithTimeout(cf.ctx, timeout[0])
 		ve = cf.getValue(ctx)
 	} else {
-		ve = cf.getValue(nil)
+		ve = cf.getValue(cf.ctx)
 	}
 	if ve.HavePanic() {
 		panic(ve.GetPanic())
