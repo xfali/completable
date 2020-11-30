@@ -845,13 +845,6 @@ func (cf *defaultCompletableFuture) ThenComposeAsync(f interface{}, executor ...
 // 尝试获得ValueOrError
 // 此处还负责处理ComposeAsync封装的CompletableFuture，该设计可能不那么“优雅”
 func (cf *defaultCompletableFuture) getValue(ctx context.Context) ValueOrError {
-	cf.lock.Lock()
-	defer cf.lock.Unlock()
-
-	if cf.result != nil {
-		return cf.result
-	}
-
 	ve := cf.v.Get(ctx)
 	if ve.GetError() == nil {
 		v := ve.GetValue()
@@ -861,8 +854,19 @@ func (cf *defaultCompletableFuture) getValue(ctx context.Context) ValueOrError {
 			}
 		}
 	}
-	cf.result = ve
 	return ve
+}
+
+func (cf *defaultCompletableFuture) getValueAndCache(ctx context.Context) ValueOrError {
+	cf.lock.Lock()
+	defer cf.lock.Unlock()
+
+	if cf.result != nil {
+		return cf.result
+	}
+
+	cf.result = cf.getValue(ctx)
+	return cf.result
 }
 
 // 捕获阶段异常，返回补偿结果
@@ -1103,9 +1107,9 @@ func (cf *defaultCompletableFuture) Get(result interface{}, timeout ...time.Dura
 	var ve ValueOrError
 	if len(timeout) > 0 {
 		ctx, _ := context.WithTimeout(cf.ctx, timeout[0])
-		ve = cf.getValue(ctx)
+		ve = cf.getValueAndCache(ctx)
 	} else {
-		ve = cf.getValue(cf.ctx)
+		ve = cf.getValueAndCache(cf.ctx)
 	}
 	if ve.HavePanic() {
 		panic(ve.GetPanic())
