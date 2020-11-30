@@ -61,15 +61,15 @@ func newCf(pCtx context.Context, v *defaultValueHandler) *defaultCompletableFutu
 	return ret
 }
 
-func newCfWithCancel(pCtx context.Context, cancelFunc context.CancelFunc, v *defaultValueHandler) *defaultCompletableFuture {
+func newCfWithCancel(cCtx context.Context, cancelFunc context.CancelFunc, v *defaultValueHandler) *defaultCompletableFuture {
 	ret := &defaultCompletableFuture{
 		v: v,
 	}
 	if v != nil {
 		ret.vType = v.Type()
 	}
-	if pCtx != nil {
-		ret.ctx = pCtx
+	if cCtx != nil {
+		ret.ctx = cCtx
 		ret.cancelFunc = cancelFunc
 	}
 	return ret
@@ -257,8 +257,8 @@ func (cf *defaultCompletableFuture) ThenCombine(other CompletionStage, combineFu
 		panic(err)
 	}
 
-	ctx, cancel := context.WithCancel(cf.ctx)
-	octx, ocancel := context.WithCancel(ctx)
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
 
 	vh := NewSyncHandler(fnValue.Type().Out(0))
 	retCf = newCfWithCancel(octx, func() {
@@ -304,8 +304,8 @@ func (cf *defaultCompletableFuture) ThenCombineAsync(
 
 	vh := NewAsyncHandler(fnValue.Type().Out(0))
 
-	ctx, cancel := context.WithCancel(cf.ctx)
-	octx, ocancel := context.WithCancel(ctx)
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
 	retCf = newCfWithCancel(octx, func() {
 		cancel()
 		ocancel()
@@ -352,8 +352,8 @@ func (cf *defaultCompletableFuture) ThenAcceptBoth(other CompletionStage, accept
 		panic(err)
 	}
 
-	ctx, cancel := context.WithCancel(cf.ctx)
-	octx, ocancel := context.WithCancel(ctx)
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
 
 	vh := NewSyncHandler(NilType)
 	retCf = newCfWithCancel(octx, func() {
@@ -396,8 +396,8 @@ func (cf *defaultCompletableFuture) ThenAcceptBothAsync(
 		panic(err)
 	}
 
-	ctx, cancel := context.WithCancel(cf.ctx)
-	octx, ocancel := context.WithCancel(ctx)
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
 
 	vh := NewAsyncHandler(NilType)
 	retCf = newCfWithCancel(octx, func() {
@@ -439,8 +439,8 @@ func (cf *defaultCompletableFuture) RunAfterBoth(other CompletionStage, runnable
 	cf.checkValue()
 	ocf.checkValue()
 
-	ctx, cancel := context.WithCancel(cf.ctx)
-	octx, ocancel := context.WithCancel(ctx)
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
 
 	vh := NewSyncHandler(NilType)
 	retCf = newCfWithCancel(octx, func() {
@@ -476,8 +476,9 @@ func (cf *defaultCompletableFuture) RunAfterBothAsync(
 	cf.checkValue()
 	ocf.checkValue()
 
-	ctx, cancel := context.WithCancel(cf.ctx)
-	octx, ocancel := context.WithCancel(ctx)
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
+
 	vh := NewAsyncHandler(NilType)
 	retCf = newCfWithCancel(octx, func() {
 		cancel()
@@ -523,10 +524,16 @@ func (cf *defaultCompletableFuture) ApplyToEither(other CompletionStage, applyFu
 		panic(err)
 	}
 
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
+
 	vh := NewSyncHandler(fnValue.Type().Out(0))
-	retCf = newCf(cf.ctx, vh)
+	retCf = newCfWithCancel(octx, func() {
+		cancel()
+		ocancel()
+	}, vh)
 	defer handlePanic(vh)
-	ve := cf.v.SelectValue(ocf.v, nil)
+	ve := cf.v.SelectValue(ocf.v, cf.ctx)
 	if !ve.HaveValue() {
 		vh.SetValueOrError(ve.Clone())
 		return
@@ -558,13 +565,19 @@ func (cf *defaultCompletableFuture) ApplyToEitherAsync(
 		panic(err)
 	}
 
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
+
 	vh := NewAsyncHandler(fnValue.Type().Out(0))
-	retCf = newCf(cf.ctx, vh)
+	retCf = newCfWithCancel(octx, func() {
+		cancel()
+		ocancel()
+	}, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
 		defer handlePanic(vh)
 		defer cf.setDone()
-		ve := cf.v.SelectValue(ocf.v, nil)
+		ve := cf.v.SelectValue(ocf.v, cf.ctx)
 		if !ve.HaveValue() {
 			vh.SetValueOrError(ve.Clone())
 			return
@@ -598,10 +611,15 @@ func (cf *defaultCompletableFuture) AcceptEither(other CompletionStage, acceptFu
 		panic(err)
 	}
 
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
 	vh := NewSyncHandler(NilType)
-	retCf = newCf(cf.ctx, vh)
+	retCf = newCfWithCancel(octx, func() {
+		cancel()
+		ocancel()
+	}, vh)
 	defer handlePanic(vh)
-	ve := cf.v.SelectValue(ocf.v, nil)
+	ve := cf.v.SelectValue(ocf.v, cf.ctx)
 	if !ve.HaveValue() {
 		vh.SetValueOrError(ve.Clone())
 		return
@@ -634,13 +652,18 @@ func (cf *defaultCompletableFuture) AcceptEitherAsync(
 		panic(err)
 	}
 
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
 	vh := NewAsyncHandler(NilType)
-	retCf = newCf(cf.ctx, vh)
+	retCf = newCfWithCancel(octx, func() {
+		cancel()
+		ocancel()
+	}, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
 		defer handlePanic(vh)
 		defer cf.setDone()
-		ve := cf.v.SelectValue(ocf.v, nil)
+		ve := cf.v.SelectValue(ocf.v, cf.ctx)
 		if !ve.HaveValue() {
 			vh.SetValueOrError(ve.Clone())
 			return
@@ -669,10 +692,15 @@ func (cf *defaultCompletableFuture) RunAfterEither(other CompletionStage, runnab
 	ocf.checkValue()
 	cf.checkSameType(ocf)
 
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
 	vh := NewSyncHandler(NilType)
-	retCf = newCf(cf.ctx, vh)
+	retCf = newCfWithCancel(octx, func() {
+		cancel()
+		ocancel()
+	}, vh)
 	defer handlePanic(vh)
-	ve := cf.v.SelectValue(ocf.v, nil)
+	ve := cf.v.SelectValue(ocf.v, cf.ctx)
 	if !ve.HaveValue() {
 		vh.SetValueOrError(ve.Clone())
 		return
@@ -700,13 +728,18 @@ func (cf *defaultCompletableFuture) RunAfterEitherAsync(
 	ocf.checkValue()
 	cf.checkSameType(ocf)
 
+	octx, cancel := context.WithCancel(cf.ctx)
+	_, ocancel := context.WithCancel(ocf.ctx)
 	vh := NewAsyncHandler(NilType)
-	retCf = newCf(cf.ctx, vh)
+	retCf = newCfWithCancel(octx, func() {
+		cancel()
+		ocancel()
+	}, vh)
 	exec := cf.chooseExecutor(executor...)
 	err := exec.Run(func() {
 		defer handlePanic(vh)
 		defer cf.setDone()
-		ve := cf.v.SelectValue(ocf.v, nil)
+		ve := cf.v.SelectValue(ocf.v, cf.ctx)
 		if !ve.HaveValue() {
 			vh.SetValueOrError(ve.Clone())
 			return

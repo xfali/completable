@@ -8,6 +8,7 @@ package test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/xfali/completable"
 	"reflect"
 	"testing"
@@ -405,4 +406,34 @@ func testSelectDone(sync bool, vh1, vh2 completable.ValueHandler, ctx context.Co
 	if !ret.IsDone() {
 		test.Fatal("ret must be done")
 	}
+}
+
+func TestContext(t *testing.T) {
+	ctx1, _ := context.WithCancel(context.Background())
+	ctx2, _ := context.WithCancel(context.Background())
+
+	ctx3, cancel3 := context.WithCancel(ctx1)
+	ctx4, cancel4 := context.WithCancel(ctx2)
+
+	go func() {
+		select {
+		case <-ctx3.Done():
+			fmt.Println("ctx3 done")
+		}
+	}()
+
+	go func() {
+		select {
+		case <-ctx4.Done():
+			fmt.Println("ctx4 done")
+		}
+	}()
+
+	cancelx := func() {
+		cancel3()
+		cancel4()
+	}
+	time.Sleep(time.Second)
+	cancelx()
+	time.Sleep(time.Second)
 }
