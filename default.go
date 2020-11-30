@@ -37,7 +37,7 @@ const (
 // 1、每个返回的CompletableFuture中的ValueHandler都必须有一个Set操作，不论是value、error、panic（目前无error）
 // 2、在1的基础上注意程序或者函数参数造的的panic没有被正确步骤，使得Set操作没有被执行，此时会造成死锁；
 //    所以在开发时，要么在创建返回CompletableFuture之前就panic，要么就捕捉panic然后ValueHandler SetPanic
-type CompletableFuture struct {
+type defaultCompletableFuture struct {
 	vType      reflect.Type
 	v          ValueHandler
 	ctx        context.Context
@@ -46,8 +46,8 @@ type CompletableFuture struct {
 	status int32
 }
 
-func newCf(pCtx context.Context, v *defaultValueHandler) *CompletableFuture {
-	ret := &CompletableFuture{
+func newCf(pCtx context.Context, v *defaultValueHandler) *defaultCompletableFuture {
+	ret := &defaultCompletableFuture{
 		v: v,
 	}
 	if v != nil {
@@ -61,8 +61,8 @@ func newCf(pCtx context.Context, v *defaultValueHandler) *CompletableFuture {
 	return ret
 }
 
-func newCfWithCancel(pCtx context.Context, cancelFunc context.CancelFunc, v *defaultValueHandler) *CompletableFuture {
-	ret := &CompletableFuture{
+func newCfWithCancel(pCtx context.Context, cancelFunc context.CancelFunc, v *defaultValueHandler) *defaultCompletableFuture {
+	ret := &defaultCompletableFuture{
 		v: v,
 	}
 	if v != nil {
@@ -78,7 +78,7 @@ func newCfWithCancel(pCtx context.Context, cancelFunc context.CancelFunc, v *def
 // 当阶段正常完成时执行参数函数：进行类型变换
 // Param：参数函数：f func(o TYPE1) TYPE2参数为上阶段结果，返回为处理后的返回值
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenApply(applyFunc interface{}) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenApply(applyFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	cf.checkValue()
 
@@ -107,7 +107,7 @@ func (cf *CompletableFuture) ThenApply(applyFunc interface{}) (retCf CompletionS
 // 当阶段正常完成时执行参数函数
 // Param：参数函数：f func(o TYPE1) TYPE2参数为上阶段结果，返回为处理后的返回值
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenApplyAsync(applyFunc interface{}, executor ...executor.Executor) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenApplyAsync(applyFunc interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(applyFunc)
@@ -140,7 +140,7 @@ func (cf *CompletableFuture) ThenApplyAsync(applyFunc interface{}, executor ...e
 // 当阶段正常完成时执行参数函数：结果消耗
 // Param：参数函数：f func(o TYPE)参数为上阶段结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenAccept(acceptFunc interface{}) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenAccept(acceptFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	cf.checkValue()
 
@@ -166,7 +166,7 @@ func (cf *CompletableFuture) ThenAccept(acceptFunc interface{}) (retCf Completio
 // 当阶段正常完成时执行参数函数：结果消耗
 // Param：参数函数：f func(o TYPE)参数为上阶段结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenAcceptAsync(acceptFunc interface{}, executor ...executor.Executor) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenAcceptAsync(acceptFunc interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(acceptFunc)
@@ -197,7 +197,7 @@ func (cf *CompletableFuture) ThenAcceptAsync(acceptFunc interface{}, executor ..
 // 当阶段正常完成时执行参数函数：不关心上一步结果
 // Param：参数函数: f func()
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenRun(runnable func()) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenRun(runnable func()) (retCf CompletionStage) {
 	defer cf.setDone()
 	cf.checkValue()
 
@@ -219,7 +219,7 @@ func (cf *CompletableFuture) ThenRun(runnable func()) (retCf CompletionStage) {
 // Param：参数函数: f func()
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenRunAsync(runnable func(), executor ...executor.Executor) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenRunAsync(runnable func(), executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 
 	vh := NewAsyncHandler(NilType)
@@ -246,7 +246,7 @@ func (cf *CompletableFuture) ThenRunAsync(runnable func(), executor ...executor.
 // Param：other，当该CompletionStage也返回后进行结合转化
 // Param：参数函数，combineFunc func(TYPE1, TYPE2) TYPE3参数为两个CompletionStage的结果，返回转化结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenCombine(other CompletionStage, combineFunc interface{}) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenCombine(other CompletionStage, combineFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -289,7 +289,7 @@ func (cf *CompletableFuture) ThenCombine(other CompletionStage, combineFunc inte
 // Param：参数函数，combineFunc func(TYPE1, TYPE2) TYPE3参数为两个CompletionStage的结果，返回转化结果
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenCombineAsync(
+func (cf *defaultCompletableFuture) ThenCombineAsync(
 	other CompletionStage,
 	combineFunc interface{},
 	executor ...executor.Executor) (retCf CompletionStage) {
@@ -341,7 +341,7 @@ func (cf *CompletableFuture) ThenCombineAsync(
 // Param：other，当该CompletionStage也返回后进行消耗
 // Param：参数函数，acceptFunc func(TYPE1, TYPE2) 参数为两个CompletionStage的结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenAcceptBoth(other CompletionStage, acceptFunc interface{}) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenAcceptBoth(other CompletionStage, acceptFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -383,7 +383,7 @@ func (cf *CompletableFuture) ThenAcceptBoth(other CompletionStage, acceptFunc in
 // Param：参数函数，acceptFunc func(TYPE1, TYPE2) 参数为两个CompletionStage的结果
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenAcceptBothAsync(
+func (cf *defaultCompletableFuture) ThenAcceptBothAsync(
 	other CompletionStage,
 	acceptFunc interface{},
 	executor ...executor.Executor) (retCf CompletionStage) {
@@ -433,7 +433,7 @@ func (cf *CompletableFuture) ThenAcceptBothAsync(
 // Param：other，当该CompletionStage也完成后执行参数函数
 // Param：参数函数 runnable func()
 // Return：新的CompletionStage
-func (cf *CompletableFuture) RunAfterBoth(other CompletionStage, runnable func()) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) RunAfterBoth(other CompletionStage, runnable func()) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -468,7 +468,7 @@ func (cf *CompletableFuture) RunAfterBoth(other CompletionStage, runnable func()
 // Param：参数函数 runnable func()
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) RunAfterBothAsync(
+func (cf *defaultCompletableFuture) RunAfterBothAsync(
 	other CompletionStage,
 	runnable func(),
 	executor ...executor.Executor) (retCf CompletionStage) {
@@ -511,7 +511,7 @@ func (cf *CompletableFuture) RunAfterBothAsync(
 // Param：other，与该CompletionStage比较，用先完成的结果进行转化，注意两个CompletionStage的返回结果类型必须相同
 // Param：参数函数 f func(o Type1) Type2参数为先完成的CompletionStage的结果，返回转化结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ApplyToEither(other CompletionStage, applyFunc interface{}) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ApplyToEither(other CompletionStage, applyFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -544,7 +544,7 @@ func (cf *CompletableFuture) ApplyToEither(other CompletionStage, applyFunc inte
 // Param：参数函数 f func(o Type1) Type2参数为先完成的CompletionStage的结果，返回转化结果
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ApplyToEitherAsync(
+func (cf *defaultCompletableFuture) ApplyToEitherAsync(
 	other CompletionStage,
 	applyFunc interface{},
 	executor ...executor.Executor) (retCf CompletionStage) {
@@ -586,7 +586,7 @@ func (cf *CompletableFuture) ApplyToEitherAsync(
 // Param：other，与该CompletionStage比较，用先完成的结果进行消耗，注意两个CompletionStage的返回结果类型必须相同
 // Param：参数函数  f func(o Type)参数为先完成的CompletionStage的结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) AcceptEither(other CompletionStage, acceptFunc interface{}) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) AcceptEither(other CompletionStage, acceptFunc interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -620,7 +620,7 @@ func (cf *CompletableFuture) AcceptEither(other CompletionStage, acceptFunc inte
 // Param：参数函数 f func(o Type)参数为先完成的CompletionStage的结果
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) AcceptEitherAsync(
+func (cf *defaultCompletableFuture) AcceptEitherAsync(
 	other CompletionStage,
 	acceptFunc interface{},
 	executor ...executor.Executor) (retCf CompletionStage) {
@@ -662,7 +662,7 @@ func (cf *CompletableFuture) AcceptEitherAsync(
 // Param：other，与该CompletionStage比较，任意一个完成则执行操作，注意两个CompletionStage的返回结果类型必须相同
 // Param：参数函数
 // Return：新的CompletionStage
-func (cf *CompletableFuture) RunAfterEither(other CompletionStage, runnable func()) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) RunAfterEither(other CompletionStage, runnable func()) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
@@ -691,7 +691,7 @@ func (cf *CompletableFuture) RunAfterEither(other CompletionStage, runnable func
 // Param：参数函数
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) RunAfterEitherAsync(
+func (cf *defaultCompletableFuture) RunAfterEitherAsync(
 	other CompletionStage,
 	runnable func(),
 	executor ...executor.Executor) (retCf CompletionStage) {
@@ -727,7 +727,7 @@ func (cf *CompletableFuture) RunAfterEitherAsync(
 // 当阶段正常完成时执行参数函数：使用上一阶段结果转化为新的CompletionStage
 // Param：参数函数，f func(o TYPE) CompletionStage 参数：上一阶段结果，返回新的CompletionStage
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenCompose(f interface{}) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenCompose(f interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	cf.checkValue()
 
@@ -750,7 +750,7 @@ func (cf *CompletableFuture) ThenCompose(f interface{}) (retCf CompletionStage) 
 		if i == nil {
 			panic("Return CompletionStage is nil. ")
 		}
-		return i.(*CompletableFuture)
+		return i.(*defaultCompletableFuture)
 		//err := ncf.v.SetValue(ve.GetValue())
 		//if err != nil {
 		//	ncf.v.SetPanic(err)
@@ -764,7 +764,7 @@ func (cf *CompletableFuture) ThenCompose(f interface{}) (retCf CompletionStage) 
 // Param：参数函数，f func(o TYPE) CompletionStage 参数：上一阶段结果，返回新的CompletionStage
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) ThenComposeAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenComposeAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 
 	fnValue := reflect.ValueOf(f)
@@ -790,7 +790,7 @@ func (cf *CompletableFuture) ThenComposeAsync(f interface{}, executor ...executo
 				vh.SetPanic(errors.New("Return CompletionStage is nil. "))
 				return
 			}
-			vh.SetValue(reflect.ValueOf(&composeCf{cf: i.(*CompletableFuture)}))
+			vh.SetValue(reflect.ValueOf(&composeCf{cf: i.(*defaultCompletableFuture)}))
 		} else {
 			vh.SetPanic(errors.New("Return CompletionStage is nil. "))
 		}
@@ -804,7 +804,7 @@ func (cf *CompletableFuture) ThenComposeAsync(f interface{}, executor ...executo
 
 // 尝试获得ValueOrError
 // 此处还负责处理ComposeAsync封装的CompletableFuture，该设计可能不那么“优雅”
-func (cf *CompletableFuture) getValue(ctx context.Context) ValueOrError {
+func (cf *defaultCompletableFuture) getValue(ctx context.Context) ValueOrError {
 	ve := cf.v.Get(ctx)
 	if ve.GetError() == nil {
 		v := ve.GetValue()
@@ -820,7 +820,7 @@ func (cf *CompletableFuture) getValue(ctx context.Context) ValueOrError {
 // 捕获阶段异常，返回补偿结果
 // Param：f func(o interface{}) TYPE参数函数，参数：捕获的panic参数，返回补偿的结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) Exceptionally(f interface{}) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) Exceptionally(f interface{}) (retCf CompletionStage) {
 	cf.checkValue()
 	fnValue := reflect.ValueOf(f)
 	if err := functools.CheckPanicFunction(fnValue.Type()); err != nil {
@@ -854,7 +854,7 @@ func (cf *CompletableFuture) Exceptionally(f interface{}) (retCf CompletionStage
 // 阶段执行时获得结果或者panic,注意会继续传递panic
 // Param：参数函数，f func(result Type, panic interface{}) 参数result：结果，参数panic：异常
 // Return：新的CompletionStage
-func (cf *CompletableFuture) WhenComplete(f interface{}) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) WhenComplete(f interface{}) (retCf CompletionStage) {
 	cf.checkValue()
 	fnValue := reflect.ValueOf(f)
 	if err := functools.CheckWhenCompleteFunction(fnValue.Type(), cf.vType); err != nil {
@@ -886,7 +886,7 @@ func (cf *CompletableFuture) WhenComplete(f interface{}) (retCf CompletionStage)
 // Param：参数函数，f func(result Type, panic interface{}) 参数result：结果，参数panic：异常
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) WhenCompleteAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) WhenCompleteAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 	fnValue := reflect.ValueOf(f)
 	if err := functools.CheckWhenCompleteFunction(fnValue.Type(), cf.vType); err != nil {
@@ -922,7 +922,7 @@ func (cf *CompletableFuture) WhenCompleteAsync(f interface{}, executor ...execut
 // 阶段执行时获得结果或者panic,并转化结果
 // Param：参数函数，f func(result TYPE1, panic interface{}) TYPE2 参数result：结果，参数panic：异常，返回：转化的结果
 // Return：新的CompletionStage
-func (cf *CompletableFuture) Handle(f interface{}) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) Handle(f interface{}) (retCf CompletionStage) {
 	cf.checkValue()
 	fnValue := reflect.ValueOf(f)
 	if err := functools.CheckHandleFunction(fnValue.Type(), cf.vType); err != nil {
@@ -957,7 +957,7 @@ func (cf *CompletableFuture) Handle(f interface{}) (retCf CompletionStage) {
 // Param：参数函数，f func(result TYPE1, panic interface{}) TYPE2 参数result：结果，参数panic：异常，返回：转化的结果
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *CompletableFuture) HandleAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) HandleAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 	fnValue := reflect.ValueOf(f)
 	if err := functools.CheckHandleFunction(fnValue.Type(), cf.vType); err != nil {
@@ -996,9 +996,19 @@ func (cf *CompletableFuture) HandleAsync(f interface{}, executor ...executor.Exe
 	return
 }
 
+// 给予get的值并正常结束
+func (cf *defaultCompletableFuture) Complete(v interface{}) error {
+	return cf.v.SetValue(reflect.ValueOf(v))
+}
+
+// 发送panic，异常结束
+func (cf *defaultCompletableFuture) CompleteExceptionally(v interface{}) {
+	cf.v.SetPanic(v)
+}
+
 // 取消并打断stage链，退出任务
 // 如果任务已完成返回false，成功取消返回true
-func (cf *CompletableFuture) Cancel() bool {
+func (cf *defaultCompletableFuture) Cancel() bool {
 	if cf.cancelFunc != nil {
 		cf.cancelFunc()
 		cf.setCancel()
@@ -1007,20 +1017,20 @@ func (cf *CompletableFuture) Cancel() bool {
 }
 
 // 是否在完成前被取消
-func (cf *CompletableFuture) IsCancelled() bool {
+func (cf *defaultCompletableFuture) IsCancelled() bool {
 	return atomic.LoadInt32(&cf.status) == completableFutureCancel
 }
 
 // 是否任务完成
 // 当任务正常完成，被取消，抛出异常都会返回true
-func (cf *CompletableFuture) IsDone() bool {
+func (cf *defaultCompletableFuture) IsDone() bool {
 	return atomic.LoadInt32(&cf.status) != completableFutureNone
 }
 
 // 等待并获得任务执行结果
 // Param： result 目标结果，必须为同类型的指针
 // Param： timeout 等待超时时间，如果不传值则一直等待
-func (cf *CompletableFuture) Get(result interface{}, timeout ...time.Duration) error {
+func (cf *defaultCompletableFuture) Get(result interface{}, timeout ...time.Duration) error {
 	cf.checkValue()
 	var ve ValueOrError
 	if len(timeout) > 0 {
@@ -1058,21 +1068,21 @@ func (cf *CompletableFuture) Get(result interface{}, timeout ...time.Duration) e
 	return nil
 }
 
-func (cf *CompletableFuture) setDone() bool {
+func (cf *defaultCompletableFuture) setDone() bool {
 	return atomic.CompareAndSwapInt32(&cf.status, completableFutureNone, completableFutureDone)
 }
 
-func (cf *CompletableFuture) setCancel() bool {
+func (cf *defaultCompletableFuture) setCancel() bool {
 	return atomic.CompareAndSwapInt32(&cf.status, completableFutureNone, completableFutureCancel)
 }
 
-func (cf *CompletableFuture) checkValue() {
+func (cf *defaultCompletableFuture) checkValue() {
 	if cf.v == nil {
 		panic("Without value, cannot be here")
 	}
 }
 
-func (cf *CompletableFuture) checkSameType(other *CompletableFuture) {
+func (cf *defaultCompletableFuture) checkSameType(other *defaultCompletableFuture) {
 	if cf.vType != other.vType {
 		panic("Not same type!")
 	}
@@ -1084,14 +1094,14 @@ func handlePanic(handler *defaultValueHandler) {
 	}
 }
 
-func convert(stage CompletionStage) *CompletableFuture {
-	if v, ok := stage.(*CompletableFuture); ok {
+func convert(stage CompletionStage) *defaultCompletableFuture {
+	if v, ok := stage.(*defaultCompletableFuture); ok {
 		return v
 	}
-	panic("CompletionStage is not *CompletableFuture")
+	panic("CompletionStage is not *defaultCompletableFuture")
 }
 
-func (cf *CompletableFuture) chooseExecutor(executor ...executor.Executor) executor.Executor {
+func (cf *defaultCompletableFuture) chooseExecutor(executor ...executor.Executor) executor.Executor {
 	if len(executor) == 0 {
 		return defaultExecutor
 	} else {
@@ -1108,11 +1118,12 @@ func chooseExecutor(executor ...executor.Executor) executor.Executor {
 }
 
 type composeCf struct {
-	cf *CompletableFuture
+	cf *defaultCompletableFuture
 }
+
 var composeCfType = reflect.TypeOf((*composeCf)(nil))
 
-func SupplyAsync(f interface{}, executor ...executor.Executor) (retCf *CompletableFuture) {
+func SupplyAsync(f interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	fnValue := reflect.ValueOf(f)
 	if err := functools.CheckSupplyFunction(fnValue.Type()); err != nil {
 		panic(err)
@@ -1136,7 +1147,7 @@ func SupplyAsync(f interface{}, executor ...executor.Executor) (retCf *Completab
 	return
 }
 
-func RunAsync(f func(), executor ...executor.Executor) (retCf *CompletableFuture) {
+func RunAsync(f func(), executor ...executor.Executor) (retCf CompletionStage) {
 	vh := NewAsyncHandler(NilType)
 	retCf = newCf(context.Background(), vh)
 
@@ -1156,6 +1167,7 @@ func RunAsync(f func(), executor ...executor.Executor) (retCf *CompletableFuture
 }
 
 var completionStageType = reflect.TypeOf((*completable.CompletionStage)(nil)).Elem()
+
 func checkComposeFunction(fn reflect.Type, vType reflect.Type) error {
 	if fn.Kind() != reflect.Func {
 		return errors.New("Param is not a function. ")

@@ -6,6 +6,7 @@
 package test
 
 import (
+	"fmt"
 	"github.com/xfali/completable"
 	"testing"
 	"time"
@@ -629,6 +630,274 @@ func TestHandle(t *testing.T) {
 		cf.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 		if ret != 1 {
+			t.Fatal("not match")
+		}
+	})
+}
+
+func TestComplete(t *testing.T) {
+	t.Run("sync panic", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			panic("error")
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200*time.Millisecond)
+			cf.Complete("complete")
+		}()
+		cf = cf.Handle(func(s string, panic interface{}) int {
+			t.Log(panic)
+			if s != "complete" || panic != nil {
+				t.Fatal("not match")
+			}
+			if s == "complete" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != 1 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("sync no panic", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200*time.Millisecond)
+			cf.Complete("complete")
+		}()
+		cf = cf.Handle(func(s string, panic interface{}) int {
+			t.Log(panic)
+			if s != "complete" || panic != nil {
+				t.Fatal("not match")
+			}
+			if s == "complete" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != 1 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("async panic", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			fmt.Println("done1")
+			panic("error")
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200*time.Millisecond)
+			fmt.Println("done2")
+			cf.Complete("complete")
+		}()
+		cf2 := cf.HandleAsync(func(s string, panic interface{}) int {
+			t.Log(panic)
+			if s != "complete" || panic != nil {
+				t.Fatal("not match")
+			}
+			if s == "complete" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		cf2.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != 1 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("async no panic", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			fmt.Println("done1")
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200*time.Millisecond)
+			fmt.Println("done2")
+			cf.Complete("complete")
+		}()
+		cf2 := cf.HandleAsync(func(s string, panic interface{}) int {
+			t.Log(panic)
+			if s != "complete" || panic != nil {
+				t.Fatal("not match")
+			}
+			if s == "complete" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		cf2.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != 1 {
+			t.Fatal("not match")
+		}
+	})
+}
+
+func TestCompleteExceptionally(t *testing.T) {
+	t.Run("sync panic", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			panic("error")
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200*time.Millisecond)
+			cf.CompleteExceptionally("complete")
+		}()
+		cf = cf.Handle(func(s string, panic interface{}) int {
+			t.Log(panic)
+			if s != "" || panic.(string) != "complete" {
+				t.Fatal("not match")
+			}
+			if s == "Hello" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != 2 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("sync no panic", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200*time.Millisecond)
+			cf.CompleteExceptionally("complete")
+		}()
+		cf = cf.Handle(func(s string, panic interface{}) int {
+			t.Log(panic)
+			if s != "" || panic.(string) != "complete" {
+				t.Fatal("not match")
+			}
+			if s == "Hello" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		cf.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != 2 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("async panic", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			panic("error")
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200*time.Millisecond)
+			cf.CompleteExceptionally("complete")
+		}()
+		cf2 := cf.HandleAsync(func(s string, panic interface{}) int {
+			t.Log(panic)
+			if s != "" || panic.(string) != "complete" {
+				t.Fatal("not match")
+			}
+			if s == "Hello" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		cf2.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != 2 {
+			t.Fatal("not match")
+		}
+	})
+
+	t.Run("async panic", func(t *testing.T) {
+		now := time.Now()
+		ret := 0
+
+		cf := completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		})
+		go func() {
+			time.Sleep(200*time.Millisecond)
+			cf.CompleteExceptionally("complete")
+		}()
+		cf2 := cf.HandleAsync(func(s string, panic interface{}) int {
+			t.Log(panic)
+			if s != "" || panic.(string) != "complete" {
+				t.Fatal("not match")
+			}
+			if s == "Hello" {
+				return 1
+			}
+			if panic != nil {
+				return 2
+			}
+			return 0
+		})
+		cf2.Get(&ret)
+		t.Log(time.Now().Sub(now), ret)
+		if ret != 2 {
 			t.Fatal("not match")
 		}
 	})

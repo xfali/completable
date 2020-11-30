@@ -9,9 +9,26 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"sync/atomic"
 )
 
 type Nil struct{}
+
+const (
+	vOrErrNone = iota
+	vOrErrNormal
+	vOrErrError
+	vOrErrPanic
+	vOrErrDone
+)
+
+const (
+	valueHandlerNone = iota
+	valueHandlerNormal
+	valueHandlerError
+	valueHandlerPanic
+	valueHandlerUnknown
+)
 
 var (
 	gNil          = &Nil{}
@@ -78,13 +95,6 @@ type ValueHandler interface {
 	BothValue(other ValueHandler, ctx context.Context) (v1, v2 ValueOrError)
 }
 
-const (
-	vOrErrNormal = iota
-	vOrErrError
-	vOrErrPanic
-	vOrErrDone
-)
-
 type vOrErr struct {
 	v      interface{}
 	status int32
@@ -106,6 +116,7 @@ func newPanic(o interface{}) *vOrErr {
 type defaultValueHandler struct {
 	t         reflect.Type
 	valueChan chan ValueOrError
+	status    int32
 }
 
 func (ve vOrErr) GetValue() reflect.Value {
@@ -158,6 +169,7 @@ func NewAsyncHandler(t reflect.Type) *defaultValueHandler {
 	return &defaultValueHandler{
 		t:         t,
 		valueChan: make(chan ValueOrError),
+		status:    valueHandlerNone,
 	}
 }
 
@@ -165,13 +177,19 @@ func NewSyncHandler(t reflect.Type) *defaultValueHandler {
 	return &defaultValueHandler{
 		t:         t,
 		valueChan: make(chan ValueOrError, 1),
+		status:    valueHandlerNone,
 	}
 }
 
 func (vh *defaultValueHandler) SetValueOrError(v ValueOrError) error {
-	if len(vh.valueChan) == 0 {
-		vh.valueChan <- v
-		return nil
+	ve := v.(vOrErr)
+	if atomic.CompareAndSwapInt32(&vh.status, valueHandlerNone, convertStatus(ve.status)) {
+		if len(vh.valueChan) == 0 {
+			vh.valueChan <- v
+			return nil
+		} else {
+			return errors.New("Already have a value. ")
+		}
 	} else {
 		return errors.New("Already have a value. ")
 	}
@@ -181,36 +199,49 @@ func (vh *defaultValueHandler) SetValue(v reflect.Value) error {
 	if v.Type() != vh.t {
 		return errors.New("Type not match. ")
 	}
-	if len(vh.valueChan) == 0 {
-		vh.valueChan <- vOrErr{
-			v:      v,
-			status: vOrErrNormal,
+	if atomic.CompareAndSwapInt32(&vh.status, valueHandlerNone, valueHandlerNormal) {
+		if len(vh.valueChan) == 0 {
+			vh.valueChan <- vOrErr{
+				v:      v,
+				status: vOrErrNormal,
+			}
+			return nil
+		} else {
+			return errors.New("Already have a value. ")
 		}
-		return nil
 	} else {
-		return errors.New("Already have a value. ")
+		// do nothing
+		return nil
 	}
 }
 
 func (vh *defaultValueHandler) SetError(err error) {
-	if len(vh.valueChan) == 0 {
-		vh.valueChan <- vOrErr{
-			v:      err,
-			status: vOrErrError,
+	if atomic.CompareAndSwapInt32(&vh.status, valueHandlerNone, valueHandlerError) {
+		if len(vh.valueChan) == 0 {
+			vh.valueChan <- vOrErr{
+				v:      err,
+				status: vOrErrError,
+			}
+		} else {
+			panic("Already have a value")
 		}
 	} else {
-		panic("Already have a value")
+		// do nothing
 	}
 }
 
 func (vh *defaultValueHandler) SetPanic(o interface{}) {
-	if len(vh.valueChan) == 0 {
-		vh.valueChan <- vOrErr{
-			v:      o,
-			status: vOrErrPanic,
+	if atomic.CompareAndSwapInt32(&vh.status, valueHandlerNone, valueHandlerPanic) {
+		if len(vh.valueChan) == 0 {
+			vh.valueChan <- vOrErr{
+				v:      o,
+				status: vOrErrPanic,
+			}
+		} else {
+			panic("Already have a value")
 		}
 	} else {
-		panic("Already have a value")
+		// do nothing
 	}
 }
 
@@ -280,4 +311,16 @@ func (vh *defaultValueHandler) BothValue(ovh ValueHandler, ctx context.Context) 
 			}
 		}
 	}
+}
+
+var vOrErrMap = map[int32]int32{
+	vOrErrNone:   valueHandlerNone,
+	vOrErrNormal: valueHandlerNormal,
+	vOrErrError:  valueHandlerError,
+	vOrErrPanic:  valueHandlerPanic,
+	vOrErrDone:   valueHandlerUnknown,
+}
+
+func convertStatus(vOrErrStatus int32) int32 {
+	return vOrErrMap[vOrErrStatus]
 }
