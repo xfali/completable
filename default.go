@@ -17,14 +17,18 @@ import (
 )
 
 const (
-	DefaultExecutorSize   = 1024
-	DefaultExecBufferSize = 64
+	DefaultExecutorSize   = 32
+	DefaultExecBufferSize = 256
 )
 
 var defaultExecutor executor.Executor
 
 func init() {
 	defaultExecutor = executor.NewFixedBufExecutor(DefaultExecutorSize, DefaultExecBufferSize)
+}
+
+func SetDefaultExecutor(executor executor.Executor) {
+	defaultExecutor = executor
 }
 
 const (
