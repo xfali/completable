@@ -156,7 +156,7 @@ func (cf *defaultCompletableFuture) ThenAccept(acceptFunc interface{}) (retCf Co
 		panic(err)
 	}
 
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(functools.NilType)
 	ctx, _ := context.WithCancel(cf.ctx)
 	retCf = newCfWithCancel(ctx, cf.cancelFunc, vh)
 	defer handlePanic(vh)
@@ -167,7 +167,7 @@ func (cf *defaultCompletableFuture) ThenAccept(acceptFunc interface{}) (retCf Co
 	}
 
 	functools.RunAccept(fnValue, ve.GetValue())
-	vh.SetValue(NilValue)
+	vh.SetValue(functools.NilValue)
 	return
 }
 
@@ -182,7 +182,7 @@ func (cf *defaultCompletableFuture) ThenAcceptAsync(acceptFunc interface{}, exec
 		panic(err)
 	}
 
-	vh := NewAsyncHandler(NilType)
+	vh := NewAsyncHandler(functools.NilType)
 	ctx, _ := context.WithCancel(cf.ctx)
 	retCf = newCfWithCancel(ctx, cf.cancelFunc, vh)
 	exec := cf.chooseExecutor(executor...)
@@ -195,7 +195,7 @@ func (cf *defaultCompletableFuture) ThenAcceptAsync(acceptFunc interface{}, exec
 			return
 		}
 		functools.RunAccept(fnValue, ve.GetValue())
-		vh.SetValue(NilValue)
+		vh.SetValue(functools.NilValue)
 	})
 	if err != nil {
 		vh.SetPanic(err)
@@ -210,7 +210,7 @@ func (cf *defaultCompletableFuture) ThenRun(runnable func()) (retCf CompletionSt
 	defer cf.setDone()
 	cf.checkValue()
 
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(functools.NilType)
 	ctx, _ := context.WithCancel(cf.ctx)
 	retCf = newCfWithCancel(ctx, cf.cancelFunc, vh)
 	defer handlePanic(vh)
@@ -221,7 +221,7 @@ func (cf *defaultCompletableFuture) ThenRun(runnable func()) (retCf CompletionSt
 	}
 
 	runnable()
-	vh.SetValue(NilValue)
+	vh.SetValue(functools.NilValue)
 	return
 }
 
@@ -232,7 +232,7 @@ func (cf *defaultCompletableFuture) ThenRun(runnable func()) (retCf CompletionSt
 func (cf *defaultCompletableFuture) ThenRunAsync(runnable func(), executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 
-	vh := NewAsyncHandler(NilType)
+	vh := NewAsyncHandler(functools.NilType)
 	ctx, _ := context.WithCancel(cf.ctx)
 	retCf = newCfWithCancel(ctx, cf.cancelFunc, vh)
 	exec := cf.chooseExecutor(executor...)
@@ -245,7 +245,7 @@ func (cf *defaultCompletableFuture) ThenRunAsync(runnable func(), executor ...ex
 			return
 		}
 		runnable()
-		vh.SetValue(NilValue)
+		vh.SetValue(functools.NilValue)
 	})
 	if err != nil {
 		vh.SetPanic(err)
@@ -363,7 +363,7 @@ func (cf *defaultCompletableFuture) ThenAcceptBoth(other CompletionStage, accept
 
 	octx, _ := context.WithCancel(cf.ctx)
 
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(functools.NilType)
 	retCf = newCfWithCancel(octx, func() {
 		cf.cancelFunc()
 		ocf.cancelFunc()
@@ -382,7 +382,7 @@ func (cf *defaultCompletableFuture) ThenAcceptBoth(other CompletionStage, accept
 	}
 
 	functools.RunAcceptBoth(fnValue, ve1.GetValue(), ve2.GetValue())
-	vh.SetValue(NilValue)
+	vh.SetValue(functools.NilValue)
 	return
 }
 
@@ -406,7 +406,7 @@ func (cf *defaultCompletableFuture) ThenAcceptBothAsync(
 
 	octx, _ := context.WithCancel(cf.ctx)
 
-	vh := NewAsyncHandler(NilType)
+	vh := NewAsyncHandler(functools.NilType)
 	retCf = newCfWithCancel(octx, func() {
 		cf.cancelFunc()
 		ocf.cancelFunc()
@@ -427,7 +427,7 @@ func (cf *defaultCompletableFuture) ThenAcceptBothAsync(
 		}
 
 		functools.RunAcceptBoth(fnValue, ve1.GetValue(), ve2.GetValue())
-		vh.SetValue(NilValue)
+		vh.SetValue(functools.NilValue)
 	})
 	if err != nil {
 		vh.SetPanic(err)
@@ -448,7 +448,7 @@ func (cf *defaultCompletableFuture) RunAfterBoth(other CompletionStage, runnable
 
 	octx, _ := context.WithCancel(cf.ctx)
 
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(functools.NilType)
 	retCf = newCfWithCancel(octx, func() {
 		cf.cancelFunc()
 		ocf.cancelFunc()
@@ -464,7 +464,7 @@ func (cf *defaultCompletableFuture) RunAfterBoth(other CompletionStage, runnable
 		return
 	}
 	runnable()
-	vh.SetValue(NilValue)
+	vh.SetValue(functools.NilValue)
 
 	return
 }
@@ -484,7 +484,7 @@ func (cf *defaultCompletableFuture) RunAfterBothAsync(
 
 	octx, _ := context.WithCancel(cf.ctx)
 
-	vh := NewAsyncHandler(NilType)
+	vh := NewAsyncHandler(functools.NilType)
 	retCf = newCfWithCancel(octx, func() {
 		cf.cancelFunc()
 		ocf.cancelFunc()
@@ -504,7 +504,7 @@ func (cf *defaultCompletableFuture) RunAfterBothAsync(
 			return
 		}
 		runnable()
-		vh.SetValue(NilValue)
+		vh.SetValue(functools.NilValue)
 	})
 	if err != nil {
 		vh.SetPanic(err)
@@ -616,7 +616,7 @@ func (cf *defaultCompletableFuture) AcceptEither(other CompletionStage, acceptFu
 
 	octx, _ := context.WithCancel(cf.ctx)
 
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(functools.NilType)
 	retCf = newCfWithCancel(octx, func() {
 		cf.cancelFunc()
 		ocf.cancelFunc()
@@ -629,7 +629,7 @@ func (cf *defaultCompletableFuture) AcceptEither(other CompletionStage, acceptFu
 	}
 
 	functools.RunAccept(fnValue, ve.GetValue())
-	err := vh.SetValue(NilValue)
+	err := vh.SetValue(functools.NilValue)
 	if err != nil {
 		vh.SetPanic(err)
 	}
@@ -657,7 +657,7 @@ func (cf *defaultCompletableFuture) AcceptEitherAsync(
 
 	octx, _ := context.WithCancel(cf.ctx)
 
-	vh := NewAsyncHandler(NilType)
+	vh := NewAsyncHandler(functools.NilType)
 	retCf = newCfWithCancel(octx, func() {
 		cf.cancelFunc()
 		ocf.cancelFunc()
@@ -673,7 +673,7 @@ func (cf *defaultCompletableFuture) AcceptEitherAsync(
 		}
 
 		functools.RunAccept(fnValue, ve.GetValue())
-		err := vh.SetValue(NilValue)
+		err := vh.SetValue(functools.NilValue)
 		if err != nil {
 			vh.SetPanic(err)
 		}
@@ -697,7 +697,7 @@ func (cf *defaultCompletableFuture) RunAfterEither(other CompletionStage, runnab
 
 	octx, _ := context.WithCancel(cf.ctx)
 
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(functools.NilType)
 	retCf = newCfWithCancel(octx, func() {
 		cf.cancelFunc()
 		ocf.cancelFunc()
@@ -710,7 +710,7 @@ func (cf *defaultCompletableFuture) RunAfterEither(other CompletionStage, runnab
 	}
 
 	runnable()
-	err := vh.SetValue(NilValue)
+	err := vh.SetValue(functools.NilValue)
 	if err != nil {
 		vh.SetPanic(err)
 	}
@@ -733,7 +733,7 @@ func (cf *defaultCompletableFuture) RunAfterEitherAsync(
 
 	octx, _ := context.WithCancel(cf.ctx)
 
-	vh := NewAsyncHandler(NilType)
+	vh := NewAsyncHandler(functools.NilType)
 	retCf = newCfWithCancel(octx, func() {
 		cf.cancelFunc()
 		ocf.cancelFunc()
@@ -749,7 +749,7 @@ func (cf *defaultCompletableFuture) RunAfterEitherAsync(
 		}
 
 		runnable()
-		err := vh.SetValue(NilValue)
+		err := vh.SetValue(functools.NilValue)
 		if err != nil {
 			vh.SetPanic(err)
 		}
@@ -772,7 +772,7 @@ func (cf *defaultCompletableFuture) ThenCompose(f interface{}) (retCf Completion
 		panic(err)
 	}
 
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(functools.NilType)
 	ctx, _ := context.WithCancel(cf.ctx)
 	retCf = newCfWithCancel(ctx, cf.cancelFunc, vh)
 
@@ -914,7 +914,7 @@ func (cf *defaultCompletableFuture) WhenComplete(f interface{}) (retCf Completio
 		panic(err)
 	}
 
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(functools.NilType)
 	ctx, _ := context.WithCancel(cf.ctx)
 	retCf = newCfWithCancel(ctx, cf.cancelFunc, vh)
 
@@ -927,13 +927,13 @@ func (cf *defaultCompletableFuture) WhenComplete(f interface{}) (retCf Completio
 	p := ve.GetPanic()
 	var panicV reflect.Value
 	if p == nil {
-		panicV = reflect.Zero(InterfaceType)
+		panicV = reflect.Zero(functools.InterfaceType)
 	} else {
 		panicV = reflect.ValueOf(p)
 	}
 	functools.RunWhenComplete(fnValue, v, panicV)
 
-	vh.SetValue(NilValue)
+	vh.SetValue(functools.NilValue)
 	return
 }
 
@@ -947,7 +947,7 @@ func (cf *defaultCompletableFuture) WhenCompleteAsync(f interface{}, executor ..
 	if err := functools.CheckWhenCompleteFunction(fnValue.Type(), cf.vType); err != nil {
 		panic(err)
 	}
-	vh := NewAsyncHandler(NilType)
+	vh := NewAsyncHandler(functools.NilType)
 	ctx, _ := context.WithCancel(cf.ctx)
 	retCf = newCfWithCancel(ctx, cf.cancelFunc, vh)
 
@@ -963,12 +963,12 @@ func (cf *defaultCompletableFuture) WhenCompleteAsync(f interface{}, executor ..
 		p := ve.GetPanic()
 		var panicV reflect.Value
 		if p == nil {
-			panicV = reflect.Zero(InterfaceType)
+			panicV = reflect.Zero(functools.InterfaceType)
 		} else {
 			panicV = reflect.ValueOf(p)
 		}
 		functools.RunWhenComplete(fnValue, v, panicV)
-		vh.SetValue(NilValue)
+		vh.SetValue(functools.NilValue)
 	})
 	if err != nil {
 		vh.SetPanic(err)
@@ -1000,7 +1000,7 @@ func (cf *defaultCompletableFuture) Handle(f interface{}) (retCf CompletionStage
 
 	var panicV reflect.Value
 	if p == nil {
-		panicV = reflect.Zero(InterfaceType)
+		panicV = reflect.Zero(functools.InterfaceType)
 	} else {
 		panicV = reflect.ValueOf(p)
 	}
@@ -1039,7 +1039,7 @@ func (cf *defaultCompletableFuture) HandleAsync(f interface{}, executor ...execu
 
 		var panicV reflect.Value
 		if p == nil {
-			panicV = reflect.Zero(InterfaceType)
+			panicV = reflect.Zero(functools.InterfaceType)
 		} else {
 			panicV = reflect.ValueOf(p)
 		}
@@ -1130,7 +1130,7 @@ func (cf *defaultCompletableFuture) Get(result interface{}, timeout ...time.Dura
 	}
 	v := ve.GetValue()
 	if v.IsValid() {
-		if v.Type() == NilType {
+		if v.Type() == functools.NilType {
 			return errors.New("Nil type cannot be set! ")
 		}
 		retValue = retValue.Elem()
@@ -1202,10 +1202,8 @@ func CompletedFuture(value interface{}) (retCf CompletionStage) {
 	var v reflect.Value
 	var t reflect.Type
 	if value == nil {
-		// FIXME: nil value not support
-		panic("Cannot be here now")
-		v = NilValue
-		t = NilType
+		v = functools.NilValue
+		t = functools.NilType
 	} else {
 		v = reflect.ValueOf(value)
 		t = v.Type()
@@ -1252,7 +1250,7 @@ func SupplyAsync(f interface{}, executor ...executor.Executor) (retCf Completion
 }
 
 func RunAsync(f func(), executor ...executor.Executor) (retCf CompletionStage) {
-	vh := NewAsyncHandler(NilType)
+	vh := NewAsyncHandler(functools.NilType)
 	ctx, cancel := context.WithCancel(context.Background())
 	retCf = newCfWithCancel(ctx, cancel, vh)
 
@@ -1261,7 +1259,7 @@ func RunAsync(f func(), executor ...executor.Executor) (retCf CompletionStage) {
 		defer handlePanic(vh)
 		defer retCf.(*defaultCompletableFuture).setDone()
 		f()
-		err := vh.SetValue(NilValue)
+		err := vh.SetValue(functools.NilValue)
 		if err != nil {
 			vh.SetPanic(err)
 		}
@@ -1273,7 +1271,7 @@ func RunAsync(f func(), executor ...executor.Executor) (retCf CompletionStage) {
 }
 
 func AllOf(cfs ...CompletionStage) (retCf CompletionStage) {
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(functools.NilType)
 	cancellers := make([]context.CancelFunc, 0, len(cfs))
 	vhs := make([]ValueHandler, 0, len(cfs))
 	for _, cf := range cfs {
@@ -1294,7 +1292,7 @@ func AllOf(cfs ...CompletionStage) (retCf CompletionStage) {
 			panic(v.GetPanic())
 		}
 	}
-	err := vh.SetValue(NilValue)
+	err := vh.SetValue(functools.NilValue)
 	if err != nil {
 		vh.SetPanic(err)
 	}
@@ -1302,7 +1300,7 @@ func AllOf(cfs ...CompletionStage) (retCf CompletionStage) {
 }
 
 func AnyOf(cfs ...CompletionStage) (retCf CompletionStage) {
-	vh := NewSyncHandler(NilType)
+	vh := NewSyncHandler(functools.NilType)
 	vhs := make([]ValueHandler, 0, len(cfs))
 	for _, cf := range cfs {
 		vhs = append(vhs, cf.(*defaultCompletableFuture).v)
@@ -1316,7 +1314,7 @@ func AnyOf(cfs ...CompletionStage) (retCf CompletionStage) {
 	if ve.HavePanic() {
 		panic(ve.GetPanic())
 	}
-	err := vh.SetValue(NilValue)
+	err := vh.SetValue(functools.NilValue)
 	if err != nil {
 		vh.SetPanic(err)
 	}

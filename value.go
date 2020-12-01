@@ -12,8 +12,6 @@ import (
 	"sync/atomic"
 )
 
-type Nil struct{}
-
 const (
 	vOrErrNone = iota
 	vOrErrNormal
@@ -31,11 +29,6 @@ const (
 )
 
 var (
-	gNil          = &Nil{}
-	NilType       = reflect.TypeOf(gNil)
-	NilValue      = reflect.ValueOf(gNil)
-	InterfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
-
 	doneError  = errors.New("Done. ")
 	gDoneError = newDone()
 )

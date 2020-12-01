@@ -25,17 +25,29 @@ func TestCompletedFuture(t *testing.T) {
 		}
 	})
 
-	//t.Run("nil", func(t *testing.T) {
-	//	cf := completable.CompletedFuture(nil).ThenAccept(func(s string) {
-	//		if s != "Hello world" {
-	//			t.Fatal("not match")
-	//		}
-	//	})
-	//	cf.Get(nil)
-	//	if !cf.IsDone() {
-	//		t.Fatal("Must be done")
-	//	}
-	//})
+	t.Run("nil", func(t *testing.T) {
+		cf := completable.CompletedFuture(nil).ThenAccept(func(s string) {
+			if s != "" {
+				t.Fatal("not match")
+			}
+		})
+		cf.Get(nil)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+	})
+
+	t.Run("nil 2", func(t *testing.T) {
+		cf := completable.CompletedFuture(nil).ThenAccept(func(s *bool) {
+			if s != nil {
+				t.Fatal("not match")
+			}
+		})
+		cf.Get(nil)
+		if !cf.IsDone() {
+			t.Fatal("Must be done")
+		}
+	})
 }
 
 func TestAllOf(t *testing.T) {
