@@ -258,13 +258,13 @@ func TestSupplyAsync(t *testing.T) {
 		})
 		ret := ""
 		err := cf.Get(&ret)
-		t.Log("after get1: ",time.Now().Sub(now))
+		t.Log("after get1: ", time.Now().Sub(now))
 		if err != nil {
 			t.Fatal(err)
 		}
 		// get twice
 		err = cf.Get(&ret)
-		t.Log("after get2: ",time.Now().Sub(now))
+		t.Log("after get2: ", time.Now().Sub(now))
 		if err != nil {
 			t.Fatal(err)
 		}
