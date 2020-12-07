@@ -9,6 +9,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"runtime"
 	"sync/atomic"
 )
 
@@ -42,6 +43,9 @@ type ValueOrError interface {
 
 	// 获得panic
 	GetPanic() interface{}
+
+	// 获得panic的stack
+	GetPanicStack() []byte
 
 	// 返回clone对象
 	Clone() ValueOrError
@@ -130,7 +134,14 @@ func (ve vOrErr) GetPanic() interface{} {
 	if ve.status != vOrErrPanic {
 		return nil
 	}
-	return ve.v
+	return ve.v.(*panicMsg).origin
+}
+
+func (ve vOrErr) GetPanicStack() []byte {
+	if ve.status != vOrErrPanic {
+		return nil
+	}
+	return ve.v.(*panicMsg).trace
 }
 
 func (ve vOrErr) Clone() ValueOrError {
@@ -227,7 +238,10 @@ func (vh *defaultValueHandler) SetPanic(o interface{}) {
 	if atomic.CompareAndSwapInt32(&vh.status, valueHandlerNone, valueHandlerPanic) {
 		if len(vh.valueChan) == 0 {
 			vh.valueChan <- vOrErr{
-				v:      o,
+				v: &panicMsg{
+					origin: o,
+					trace:  stacks(true),
+				},
 				status: vOrErrPanic,
 			}
 		} else {
@@ -357,4 +371,25 @@ var vOrErrMap = map[int32]int32{
 
 func convertStatus(vOrErrStatus int32) int32 {
 	return vOrErrMap[vOrErrStatus]
+}
+
+type panicMsg struct {
+	origin interface{}
+	trace  []byte
+}
+
+func stacks(all bool) []byte {
+	n := 10000
+	if all {
+		n = 100000
+	}
+	var trace []byte
+	for i := 0; i < 5; i++ {
+		trace = make([]byte, n)
+		nbytes := runtime.Stack(trace, all)
+		if nbytes < len(trace) {
+			return trace[:nbytes]
+		}
+	}
+	return trace
 }

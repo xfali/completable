@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	DefaultExecutorSize   = 32
+	DefaultExecutorSize   = 1024
 	DefaultExecBufferSize = 256
 )
 
@@ -792,7 +792,7 @@ func (cf *defaultCompletableFuture) ThenCompose(f interface{}) (retCf Completion
 		if i == nil {
 			panic("Return CompletionStage is nil. ")
 		}
-		return i.(*defaultCompletableFuture)
+		return i.(CompletionStage)
 		//err := ncf.v.SetValue(ve.GetValue())
 		//if err != nil {
 		//	ncf.v.SetPanic(err)
@@ -834,7 +834,7 @@ func (cf *defaultCompletableFuture) ThenComposeAsync(f interface{}, executor ...
 				vh.SetPanic(errors.New("Return CompletionStage is nil. "))
 				return
 			}
-			vh.SetValue(reflect.ValueOf(&composeCf{cf: i.(*defaultCompletableFuture)}))
+			vh.SetValue(reflect.ValueOf(&composeCf{joinVe: i.(Joinable)}))
 		} else {
 			vh.SetPanic(errors.New("Return CompletionStage is nil. "))
 		}
@@ -846,6 +846,10 @@ func (cf *defaultCompletableFuture) ThenComposeAsync(f interface{}, executor ...
 	return
 }
 
+func (cf *defaultCompletableFuture) JoinCompletionStage(ctx context.Context) CompletionStage {
+	return cf
+}
+
 // 尝试获得ValueOrError
 // 此处还负责处理ComposeAsync封装的CompletableFuture，该设计可能不那么“优雅”
 func (cf *defaultCompletableFuture) getValue(ctx context.Context) ValueOrError {
@@ -854,7 +858,7 @@ func (cf *defaultCompletableFuture) getValue(ctx context.Context) ValueOrError {
 		v := ve.GetValue()
 		if v.IsValid() && !v.IsZero() {
 			if c, ok := v.Interface().(*composeCf); ok {
-				ve = c.cf.getValue(ctx)
+				ve = c.joinVe.JoinCompletionStage(ctx).(*defaultCompletableFuture).getValue(ctx)
 			}
 		}
 	}
@@ -1197,7 +1201,7 @@ func chooseExecutor(executor ...executor.Executor) executor.Executor {
 }
 
 type composeCf struct {
-	cf *defaultCompletableFuture
+	joinVe Joinable
 }
 
 var composeCfType = reflect.TypeOf((*composeCf)(nil))
@@ -1326,6 +1330,10 @@ func AnyOf(cfs ...CompletionStage) (retCf CompletionStage) {
 }
 
 var completionStageType = reflect.TypeOf((*CompletionStage)(nil)).Elem()
+
+type Joinable interface {
+	JoinCompletionStage(ctx context.Context) CompletionStage
+}
 
 func checkComposeFunction(fn reflect.Type, vType reflect.Type) error {
 	if fn.Kind() != reflect.Func {
