@@ -24,7 +24,8 @@ const (
 var defaultExecutor executor.Executor
 
 func init() {
-	defaultExecutor = executor.NewFixedBufExecutor(DefaultExecutorSize, DefaultExecBufferSize)
+	//defaultExecutor = executor.NewFixedBufExecutor(DefaultExecutorSize, DefaultExecBufferSize)
+	defaultExecutor = &UnlimitedExecutor{}
 }
 
 func SetDefaultExecutor(executor executor.Executor) {

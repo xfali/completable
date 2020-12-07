@@ -3,7 +3,7 @@
 // @version V1.0
 // Description:
 
-package completablefuture
+package lazycompletable
 
 import (
 	"context"
