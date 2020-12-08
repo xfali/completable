@@ -601,6 +601,28 @@ func testAllOfValueDone(sync bool, vh1, vh2 completable.ValueHandler, ctx contex
 	}
 }
 
+func TestChannel(t *testing.T) {
+	ch := make(chan bool, 1)
+	now := time.Now()
+	select {
+	case v, ok := <-ch:
+		t.Log(v, ok)
+		break
+	default:
+		t.Log("no value")
+		break
+	}
+
+	go func() {
+		time.Sleep(time.Second)
+		ch <- true
+	}()
+	t.Log("before get", time.Since(now))
+	v, ok := <-ch
+	t.Log("after get", time.Since(now))
+	t.Log(v, ok)
+}
+
 func TestContext(t *testing.T) {
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	ctx2, cancel2 := context.WithCancel(context.Background())

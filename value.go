@@ -172,7 +172,7 @@ func (ve vOrErr) IsDone() bool {
 func NewAsyncHandler(t reflect.Type) *defaultValueHandler {
 	return &defaultValueHandler{
 		t:         t,
-		valueChan: make(chan ValueOrError),
+		valueChan: make(chan ValueOrError, 1),
 		status:    valueHandlerNone,
 	}
 }
