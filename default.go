@@ -1121,6 +1121,7 @@ func (cf *defaultCompletableFuture) Get(result interface{}, timeout ...time.Dura
 		ve = cf.getValueAndCache(cf.ctx)
 	}
 	if ve.HavePanic() {
+		panicPrinter(ve.GetPanicStack())
 		panic(ve.GetPanic())
 	}
 	if ve.IsDone() {

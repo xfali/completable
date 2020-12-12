@@ -8,6 +8,7 @@ package completable
 import (
 	"context"
 	"errors"
+	"log"
 	"reflect"
 	"runtime"
 	"sync/atomic"
@@ -240,7 +241,7 @@ func (vh *defaultValueHandler) SetPanic(o interface{}) {
 			vh.valueChan <- vOrErr{
 				v: &panicMsg{
 					origin: o,
-					trace:  stacks(true),
+					trace:  stacks(),
 				},
 				status: vOrErrPanic,
 			}
@@ -378,15 +379,32 @@ type panicMsg struct {
 	trace  []byte
 }
 
-func stacks(all bool) []byte {
-	n := 10000
-	if all {
-		n = 100000
+var (
+	panicPrinter = func(s []byte) {
+		log.Print(string(s))
+	}
+	allStacks = false
+)
+
+func SetLogPanicStacks(f func(s []byte), all bool) {
+	panicPrinter = f
+	allStacks = all
+}
+
+func stacks() []byte {
+	if panicPrinter == nil {
+		return nil
+	}
+
+	n := 10240
+	if allStacks {
+		n = 102400
 	}
 	var trace []byte
-	for i := 0; i < 5; i++ {
-		trace = make([]byte, n)
-		nbytes := runtime.Stack(trace, all)
+	var i uint8 = 0
+	for ; i < 5; i++ {
+		trace = make([]byte, n<<i)
+		nbytes := runtime.Stack(trace, allStacks)
 		if nbytes < len(trace) {
 			return trace[:nbytes]
 		}
