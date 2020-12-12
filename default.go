@@ -465,7 +465,7 @@ func (cf *defaultCompletableFuture) RunAfterBoth(other CompletionStage, runnable
 		return
 	}
 	if !ve2.HaveValue() {
-		vh.SetValueOrError(ve1.Clone())
+		vh.SetValueOrError(ve2.Clone())
 		return
 	}
 	runnable()
