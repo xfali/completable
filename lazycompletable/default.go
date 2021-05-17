@@ -10,7 +10,6 @@ import (
 	"errors"
 	"github.com/xfali/completable"
 	"github.com/xfali/executor"
-	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -592,61 +591,11 @@ func AnyOf(cfs ...completable.CompletionStage) (retCf completable.CompletionStag
 	if len(cfs) == 0 {
 		return nil
 	}
-	ret := &lazyCompletableFuture{
-		fn: func(origin completable.CompletionStage) completable.CompletionStage {
-			origins := make([]completable.CompletionStage, len(cfs))
-			for i := range cfs {
-				if v, ok := cfs[i].(*lazyCompletableFuture); ok {
-					origins[i] = v.join()
-				} else {
-					origins[i] = cfs[i]
-				}
-			}
-			return completable.AnyOf(origins...)
-		},
-	}
-	ret.header = ret
-	return ret
+
+	cs, _ := completable.GetAny(context.Background(), cfs...)
+	return cs
 }
 
 func (cf *lazyCompletableFuture) JoinCompletionStage(ctx context.Context) completable.CompletionStage {
 	return cf.join()
-}
-
-func runAny(vhs ...completable.CompletionStage) ([]chan completable.CompletionStage, error) {
-	channels := make([]chan completable.CompletionStage, len(vhs))
-	for i, c := range vhs {
-		ch := make(chan completable.CompletionStage)
-		cs := c
-		channels[i] = ch
-		go func() {
-			ch <- cs.(*lazyCompletableFuture).join()
-		}()
-	}
-	return channels, nil
-}
-
-func anyOfCompletionStage(ctx context.Context, vhs ...chan completable.CompletionStage) (int, completable.CompletionStage) {
-	size := len(vhs)
-	if ctx != nil {
-		size++
-	}
-	selectCases := make([]reflect.SelectCase, size)
-	if ctx != nil {
-		selectCases[len(vhs)] = reflect.SelectCase{
-			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(ctx.Done()),
-		}
-	}
-	for i, vh := range vhs {
-		selectCases[i] = reflect.SelectCase{
-			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(vh),
-		}
-	}
-	index, value, _ := reflect.Select(selectCases)
-	if index == len(vhs) {
-		return index, nil
-	}
-	return index, value.Interface().(completable.CompletionStage)
 }

@@ -8,14 +8,13 @@ package test
 import (
 	"fmt"
 	"github.com/xfali/completable"
-	"github.com/xfali/completable/lazycompletable"
 	"testing"
 	"time"
 )
 
 func TestCompletedFuture(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
-		cf := lazycompletable.CompletedFuture("Hello world").ThenAccept(func(s string) {
+		cf := completable.CompletedFuture("Hello world").ThenAccept(func(s string) {
 			if s != "Hello world" {
 				t.Fatal("not match")
 			}
@@ -27,7 +26,7 @@ func TestCompletedFuture(t *testing.T) {
 	})
 
 	t.Run("nil", func(t *testing.T) {
-		cf := lazycompletable.CompletedFuture(nil).ThenAccept(func(s string) {
+		cf := completable.CompletedFuture(nil).ThenAccept(func(s string) {
 			if s != "" {
 				t.Fatal("not match")
 			}
@@ -39,7 +38,7 @@ func TestCompletedFuture(t *testing.T) {
 	})
 
 	t.Run("nil 2", func(t *testing.T) {
-		cf := lazycompletable.CompletedFuture(nil).ThenAccept(func(s *bool) {
+		cf := completable.CompletedFuture(nil).ThenAccept(func(s *bool) {
 			if s != nil {
 				t.Fatal("not match")
 			}
@@ -54,13 +53,13 @@ func TestCompletedFuture(t *testing.T) {
 func TestAllOf(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.AllOf(lazycompletable.SupplyAsync(func() int {
+		cf := completable.AllOf(completable.SupplyAsync(func() int {
 			time.Sleep(2 * time.Second)
 			return 1
-		}), lazycompletable.SupplyAsync(func() int {
+		}), completable.SupplyAsync(func() int {
 			time.Sleep(1 * time.Second)
 			return 1
-		}), lazycompletable.SupplyAsync(func() int {
+		}), completable.SupplyAsync(func() int {
 			time.Sleep(3 * time.Second)
 			return 1
 		}))
@@ -84,14 +83,14 @@ func TestAllOf(t *testing.T) {
 			}
 		}()
 		now := time.Now()
-		cf := lazycompletable.AllOf(lazycompletable.SupplyAsync(func() int {
+		cf := completable.AllOf(completable.SupplyAsync(func() int {
 			time.Sleep(2 * time.Second)
 			panic("error on 2")
 			return 1
-		}), lazycompletable.SupplyAsync(func() int {
+		}), completable.SupplyAsync(func() int {
 			time.Sleep(1 * time.Second)
 			return 1
-		}), lazycompletable.SupplyAsync(func() int {
+		}), completable.SupplyAsync(func() int {
 			time.Sleep(3 * time.Second)
 			return 1
 		}))
@@ -107,13 +106,13 @@ func TestAllOf(t *testing.T) {
 
 	//t.Run("normal cancel", func(t *testing.T) {
 	//	now := time.Now()
-	//	cf := completablefuture.AllOf(completablefuture.SupplyAsync(func() int {
+	//	cf := completable.AllOf(completable.SupplyAsync(func() int {
 	//		time.Sleep(2 * time.Second)
 	//		return 1
-	//	}), completablefuture.SupplyAsync(func() int {
+	//	}), completable.SupplyAsync(func() int {
 	//		time.Sleep(1 * time.Second)
 	//		return 1
-	//	}), completablefuture.SupplyAsync(func() int {
+	//	}), completable.SupplyAsync(func() int {
 	//		time.Sleep(3 * time.Second)
 	//		return 1
 	//	}))
@@ -135,31 +134,23 @@ func TestAllOf(t *testing.T) {
 func TestAnyOf(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.AnyOf(lazycompletable.SupplyAsync(func() int {
+		cf := completable.AnyOf(completable.SupplyAsync(func() int {
 			time.Sleep(2 * time.Second)
-			return 2
-		}), lazycompletable.SupplyAsync(func() int {
+			return 1
+		}), completable.SupplyAsync(func() int {
 			time.Sleep(1 * time.Second)
 			return 1
-		}), lazycompletable.SupplyAsync(func() int {
+		}), completable.SupplyAsync(func() int {
 			time.Sleep(3 * time.Second)
-			return 3
+			return 1
 		}))
-		var ret int
-		err := cf.Get(&ret)
-		if err != nil {
-			t.Fatal("not error")
-		}
+		cf.Get(nil)
 		if !cf.IsDone() {
 			t.Fatal("Must be done")
 		}
 		useTime := time.Since(now)
 		if useTime < 1*time.Second || useTime > 1100*time.Millisecond {
 			t.Fatal("must  1 second")
-		}
-
-		if ret != 1 {
-			t.Fatal("must be 1")
 		}
 	})
 
@@ -173,17 +164,17 @@ func TestAnyOf(t *testing.T) {
 			}
 		}()
 		now := time.Now()
-		cf := lazycompletable.AnyOf(lazycompletable.SupplyAsync(func() int {
+		cf := completable.AnyOf(completable.SupplyAsync(func() int {
 			time.Sleep(2 * time.Second)
 			panic("2 second panic")
-			return 2
-		}), lazycompletable.SupplyAsync(func() int {
+			return 1
+		}), completable.SupplyAsync(func() int {
 			time.Sleep(1 * time.Second)
 			panic("1 second panic")
 			return 1
-		}), lazycompletable.SupplyAsync(func() int {
+		}), completable.SupplyAsync(func() int {
 			time.Sleep(3 * time.Second)
-			return 3
+			return 1
 		}))
 		cf.Get(nil)
 		if !cf.IsDone() {
@@ -197,13 +188,13 @@ func TestAnyOf(t *testing.T) {
 
 	//t.Run("cancel", func(t *testing.T) {
 	//	now := time.Now()
-	//	cf := completablefuture.AnyOf(completablefuture.SupplyAsync(func() int {
+	//	cf := completable.AnyOf(completable.SupplyAsync(func() int {
 	//		time.Sleep(2 * time.Second)
 	//		return 1
-	//	}), completablefuture.SupplyAsync(func() int {
+	//	}), completable.SupplyAsync(func() int {
 	//		time.Sleep(1 * time.Second)
 	//		return 1
-	//	}), completablefuture.SupplyAsync(func() int {
+	//	}), completable.SupplyAsync(func() int {
 	//		time.Sleep(3 * time.Second)
 	//		return 1
 	//	}))
@@ -225,7 +216,7 @@ func TestAnyOf(t *testing.T) {
 func TestRunAsync(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.RunAsync(func() {
+		cf := completable.RunAsync(func() {
 			time.Sleep(1 * time.Second)
 			t.Log(time.Now().Sub(now), "Hello World")
 		})
@@ -237,7 +228,7 @@ func TestRunAsync(t *testing.T) {
 
 	t.Run("with cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.RunAsync(func() {
+		cf := completable.RunAsync(func() {
 			time.Sleep(1 * time.Second)
 			t.Log(time.Now().Sub(now), "Hello World")
 		})
@@ -261,7 +252,7 @@ func TestRunAsync(t *testing.T) {
 func TestSupplyAsync(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		})
@@ -288,7 +279,7 @@ func TestSupplyAsync(t *testing.T) {
 
 	t.Run("with cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		})
@@ -318,7 +309,7 @@ func TestSupplyAsync(t *testing.T) {
 func TestThenApply(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenApply(func(o string) string {
@@ -336,7 +327,7 @@ func TestThenApply(t *testing.T) {
 	})
 	t.Run("sync with cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -367,7 +358,7 @@ func TestThenApply(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenApplyAsync(func(o string) string {
@@ -386,7 +377,7 @@ func TestThenApply(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenApplyAsync(func(o string) string {
@@ -420,7 +411,7 @@ func TestThenApply(t *testing.T) {
 func TestThenAccept(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenAccept(func(o string) {
@@ -433,11 +424,12 @@ func TestThenAccept(t *testing.T) {
 		t.Log("before get: ", time.Now().Sub(now))
 		cf.Get(nil)
 		t.Log("after get: ", time.Now().Sub(now))
+		t.Log(time.Now().Sub(now))
 	})
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		})
@@ -468,7 +460,7 @@ func TestThenAccept(t *testing.T) {
 
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenAcceptAsync(func(o string) {
@@ -486,7 +478,7 @@ func TestThenAccept(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenAcceptAsync(func(o string) {
@@ -501,7 +493,9 @@ func TestThenAccept(t *testing.T) {
 			cf.Cancel()
 		}()
 		ret := ""
+		t.Log("before get: ", time.Now().Sub(now))
 		err := cf.Get(&ret)
+		t.Log("after get: ", time.Now().Sub(now))
 		if !cf.IsCancelled() {
 			t.Fatal("must be cancelled")
 		}
@@ -516,7 +510,7 @@ func TestThenAccept(t *testing.T) {
 func TestThenRun(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenRun(func() {
@@ -527,7 +521,7 @@ func TestThenRun(t *testing.T) {
 	})
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		})
@@ -551,7 +545,7 @@ func TestThenRun(t *testing.T) {
 	})
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenRunAsync(func() {
@@ -563,7 +557,7 @@ func TestThenRun(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenRunAsync(func() {
@@ -590,10 +584,10 @@ func TestThenCombine(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenCombine(lazycompletable.SupplyAsync(func() string {
+		}).ThenCombine(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) string {
@@ -611,7 +605,7 @@ func TestThenCombine(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -619,7 +613,7 @@ func TestThenCombine(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.ThenCombine(lazycompletable.SupplyAsync(func() string {
+		cf := origin.ThenCombine(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) string {
@@ -646,10 +640,10 @@ func TestThenCombine(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenCombineAsync(lazycompletable.SupplyAsync(func() string {
+		}).ThenCombineAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) string {
@@ -667,10 +661,10 @@ func TestThenCombine(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenCombineAsync(lazycompletable.SupplyAsync(func() string {
+		}).ThenCombineAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) string {
@@ -703,10 +697,10 @@ func TestAcceptBoth(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenAcceptBoth(lazycompletable.SupplyAsync(func() string {
+		}).ThenAcceptBoth(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) {
@@ -723,7 +717,7 @@ func TestAcceptBoth(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -731,7 +725,7 @@ func TestAcceptBoth(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.ThenAcceptBoth(lazycompletable.SupplyAsync(func() string {
+		cf := origin.ThenAcceptBoth(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) {
@@ -757,10 +751,10 @@ func TestAcceptBoth(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenAcceptBothAsync(lazycompletable.SupplyAsync(func() string {
+		}).ThenAcceptBothAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) {
@@ -777,10 +771,10 @@ func TestAcceptBoth(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenAcceptBothAsync(lazycompletable.SupplyAsync(func() string {
+		}).ThenAcceptBothAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) {
@@ -812,10 +806,10 @@ func TestRunAfterBoth(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterBoth(lazycompletable.SupplyAsync(func() string {
+		}).RunAfterBoth(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -829,7 +823,7 @@ func TestRunAfterBoth(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -837,7 +831,7 @@ func TestRunAfterBoth(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.RunAfterBoth(lazycompletable.SupplyAsync(func() string {
+		cf := origin.RunAfterBoth(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -860,10 +854,10 @@ func TestRunAfterBoth(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterBothAsync(lazycompletable.SupplyAsync(func() string {
+		}).RunAfterBothAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -877,10 +871,10 @@ func TestRunAfterBoth(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterBothAsync(lazycompletable.SupplyAsync(func() string {
+		}).RunAfterBothAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -909,10 +903,10 @@ func TestApplyEither(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ApplyToEither(lazycompletable.SupplyAsync(func() string {
+		}).ApplyToEither(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) string {
@@ -927,7 +921,7 @@ func TestApplyEither(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -935,7 +929,7 @@ func TestApplyEither(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.ApplyToEither(lazycompletable.SupplyAsync(func() string {
+		cf := origin.ApplyToEither(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) string {
@@ -959,10 +953,10 @@ func TestApplyEither(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ApplyToEitherAsync(lazycompletable.SupplyAsync(func() string {
+		}).ApplyToEitherAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) string {
@@ -977,10 +971,10 @@ func TestApplyEither(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ApplyToEitherAsync(lazycompletable.SupplyAsync(func() string {
+		}).ApplyToEitherAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) string {
@@ -1010,10 +1004,10 @@ func TestAcceptEither(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).AcceptEither(lazycompletable.SupplyAsync(func() string {
+		}).AcceptEither(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) {
@@ -1029,7 +1023,7 @@ func TestAcceptEither(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1037,7 +1031,7 @@ func TestAcceptEither(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.AcceptEither(lazycompletable.SupplyAsync(func() string {
+		cf := origin.AcceptEither(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) {
@@ -1062,10 +1056,10 @@ func TestAcceptEither(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).AcceptEitherAsync(lazycompletable.SupplyAsync(func() string {
+		}).AcceptEitherAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) {
@@ -1081,10 +1075,10 @@ func TestAcceptEither(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).AcceptEitherAsync(lazycompletable.SupplyAsync(func() string {
+		}).AcceptEitherAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) {
@@ -1115,10 +1109,10 @@ func TestRunEither(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterEither(lazycompletable.SupplyAsync(func() string {
+		}).RunAfterEither(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -1136,7 +1130,7 @@ func TestRunEither(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1144,7 +1138,7 @@ func TestRunEither(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.RunAfterEither(lazycompletable.SupplyAsync(func() string {
+		cf := origin.RunAfterEither(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -1170,10 +1164,10 @@ func TestRunEither(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterEitherAsync(lazycompletable.SupplyAsync(func() string {
+		}).RunAfterEitherAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -1190,10 +1184,10 @@ func TestRunEither(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterEitherAsync(lazycompletable.SupplyAsync(func() string {
+		}).RunAfterEitherAsync(completable.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -1225,7 +1219,7 @@ func TestCompose(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenCompose(func(s string) completable.CompletionStage {
@@ -1233,7 +1227,7 @@ func TestCompose(t *testing.T) {
 			if s != "Hello" {
 				t.Fatal("not match")
 			}
-			return lazycompletable.SupplyAsync(func() string {
+			return completable.SupplyAsync(func() string {
 				return "world"
 			})
 		})
@@ -1246,7 +1240,7 @@ func TestCompose(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1259,7 +1253,7 @@ func TestCompose(t *testing.T) {
 			if s != "Hello" {
 				t.Fatal("not match")
 			}
-			return lazycompletable.SupplyAsync(func() string {
+			return completable.SupplyAsync(func() string {
 				return "world"
 			})
 		})
@@ -1281,7 +1275,7 @@ func TestCompose(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenComposeAsync(func(s string) completable.CompletionStage {
@@ -1289,7 +1283,7 @@ func TestCompose(t *testing.T) {
 			if s != "Hello" {
 				t.Fatal("not match")
 			}
-			return lazycompletable.SupplyAsync(func() string {
+			return completable.SupplyAsync(func() string {
 				return "world"
 			})
 		})
@@ -1302,7 +1296,7 @@ func TestCompose(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenComposeAsync(func(s string) completable.CompletionStage {
@@ -1310,7 +1304,7 @@ func TestCompose(t *testing.T) {
 			if s != "Hello" {
 				t.Fatal("not match")
 			}
-			return lazycompletable.SupplyAsync(func() string {
+			return completable.SupplyAsync(func() string {
 				return "world"
 			})
 		})
@@ -1338,7 +1332,7 @@ func TestExceptionally(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error!")
 			return "Hello"
@@ -1355,7 +1349,7 @@ func TestExceptionally(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error!")
 			return "Hello"
@@ -1386,7 +1380,7 @@ func TestExceptionally(t *testing.T) {
 	t.Run("sync no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).Exceptionally(func(o interface{}) string {
@@ -1402,7 +1396,7 @@ func TestExceptionally(t *testing.T) {
 
 	t.Run("sync no panic cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1434,7 +1428,7 @@ func TestWhenComplete(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1450,7 +1444,7 @@ func TestWhenComplete(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1481,7 +1475,7 @@ func TestWhenComplete(t *testing.T) {
 	t.Run("sync no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).WhenComplete(func(s string, panic interface{}) {
@@ -1496,7 +1490,7 @@ func TestWhenComplete(t *testing.T) {
 
 	t.Run("sync no panic cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1526,7 +1520,7 @@ func TestWhenComplete(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1542,7 +1536,7 @@ func TestWhenComplete(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1571,7 +1565,7 @@ func TestWhenComplete(t *testing.T) {
 	t.Run("async no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).WhenCompleteAsync(func(s string, panic interface{}) {
@@ -1586,7 +1580,7 @@ func TestWhenComplete(t *testing.T) {
 
 	t.Run("async no panic cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).WhenCompleteAsync(func(s string, panic interface{}) {
@@ -1616,7 +1610,7 @@ func TestHandle(t *testing.T) {
 	t.Run("sync panic", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1643,7 +1637,7 @@ func TestHandle(t *testing.T) {
 	t.Run("sync panic cancel", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1682,7 +1676,7 @@ func TestHandle(t *testing.T) {
 	t.Run("sync no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).Handle(func(s string, panic interface{}) int {
@@ -1708,7 +1702,7 @@ func TestHandle(t *testing.T) {
 	t.Run("sync no panic cancel", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		origin := lazycompletable.SupplyAsync(func() string {
+		origin := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1746,7 +1740,7 @@ func TestHandle(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1773,7 +1767,7 @@ func TestHandle(t *testing.T) {
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1811,7 +1805,7 @@ func TestHandle(t *testing.T) {
 	t.Run("async no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).HandleAsync(func(s string, panic interface{}) int {
@@ -1837,7 +1831,7 @@ func TestHandle(t *testing.T) {
 	t.Run("async no panic cancel", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).HandleAsync(func(s string, panic interface{}) int {
@@ -1877,7 +1871,7 @@ func TestComplete(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1910,7 +1904,7 @@ func TestComplete(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1942,7 +1936,7 @@ func TestComplete(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			fmt.Println("done1")
 			panic("error")
@@ -1977,7 +1971,7 @@ func TestComplete(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			fmt.Println("done1")
 			return "Hello"
@@ -2013,7 +2007,7 @@ func TestCompleteExceptionally(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -2046,7 +2040,7 @@ func TestCompleteExceptionally(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -2078,11 +2072,15 @@ func TestCompleteExceptionally(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
 		})
+		go func() {
+			time.Sleep(200 * time.Millisecond)
+			cf.CompleteExceptionally("complete")
+		}()
 		cf2 := cf.HandleAsync(func(s string, panic interface{}) int {
 			t.Log(panic)
 			if s != "" || panic.(string) != "complete" {
@@ -2096,10 +2094,6 @@ func TestCompleteExceptionally(t *testing.T) {
 			}
 			return 0
 		})
-		go func() {
-			time.Sleep(200 * time.Millisecond)
-			cf2.CompleteExceptionally("complete")
-		}()
 		cf2.Get(&ret)
 		t.Log(time.Now().Sub(now), ret)
 		if ret != 2 {
@@ -2111,7 +2105,7 @@ func TestCompleteExceptionally(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := lazycompletable.SupplyAsync(func() string {
+		cf := completable.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"github.com/xfali/completable"
 	"github.com/xfali/executor"
-	"reflect"
 	"sync"
 	"time"
 )
@@ -564,16 +563,8 @@ func AnyOf(cfs ...completable.CompletionStage) (retCf completable.CompletionStag
 	if len(cfs) == 0 {
 		return nil
 	}
-	chs, _ := runAny(cfs...)
-	i, cs := anyOfCompletionStage(context.Background(), chs...)
-	if i == len(cfs) {
-		return nil
-	}
-	ret := &queuedCompletableFuture{
-		origin: cs,
-		queue:  list.New(),
-	}
-	return ret
+	cs, _ := completable.GetAny(context.Background(), cfs...)
+	return cs
 }
 
 func (cf *queuedCompletableFuture) JoinCompletionStage(ctx context.Context) completable.CompletionStage {
@@ -681,54 +672,4 @@ func (cf *queuedCompletableFuture) convertOrigin() completable.CompletionStage {
 		}
 	}
 	return cur
-}
-
-func runAny(vhs ...completable.CompletionStage) (channels []chan completable.CompletionStage, err error) {
-	channels = make([]chan completable.CompletionStage, len(vhs))
-	for i, c := range vhs {
-		ch := make(chan completable.CompletionStage)
-		cs := c
-		channels[i] = ch
-		go func(ep *error) {
-			defer func(ep *error) {
-				if o := recover(); o != nil {
-					if e, ok := o.(error); ok {
-						*ep = e
-					} else {
-						*ep = fmt.Errorf("AnyOf panic: %v . ", o)
-					}
-				}
-			}(ep)
-			origin := cs.(*queuedCompletableFuture).join()
-			//
-			origin.Get(nil)
-			ch <- origin
-		}(&err)
-	}
-	return channels, nil
-}
-
-func anyOfCompletionStage(ctx context.Context, vhs ...chan completable.CompletionStage) (int, completable.CompletionStage) {
-	size := len(vhs)
-	if ctx != nil {
-		size++
-	}
-	selectCases := make([]reflect.SelectCase, size)
-	if ctx != nil {
-		selectCases[len(vhs)] = reflect.SelectCase{
-			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(ctx.Done()),
-		}
-	}
-	for i, vh := range vhs {
-		selectCases[i] = reflect.SelectCase{
-			Dir:  reflect.SelectRecv,
-			Chan: reflect.ValueOf(vh),
-		}
-	}
-	index, value, _ := reflect.Select(selectCases)
-	if index == len(vhs) {
-		return index, nil
-	}
-	return index, value.Interface().(completable.CompletionStage)
 }
