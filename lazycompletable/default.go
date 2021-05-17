@@ -421,14 +421,15 @@ func (cf *lazyCompletableFuture) Complete(v interface{}) error {
 }
 
 // 发送panic，异常结束
-func (cf *lazyCompletableFuture) CompleteExceptionally(v interface{}) {
+func (cf *lazyCompletableFuture) CompleteExceptionally(v interface{}) error {
 	for h := cf.header; h != nil; h = h.next {
 		o := h.getOrigin()
 		if o != nil {
 			o.CompleteExceptionally(v)
-			return
+			return nil
 		}
 	}
+	return nil
 }
 
 // 取消并打断stage链，退出任务

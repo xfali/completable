@@ -8,13 +8,14 @@ package test
 import (
 	"fmt"
 	"github.com/xfali/completable"
+	"github.com/xfali/completable/queued"
 	"testing"
 	"time"
 )
 
 func TestCompletedFuture(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
-		cf := completable.CompletedFuture("Hello world").ThenAccept(func(s string) {
+		cf := queued.CompletedFuture("Hello world").ThenAccept(func(s string) {
 			if s != "Hello world" {
 				t.Fatal("not match")
 			}
@@ -26,7 +27,7 @@ func TestCompletedFuture(t *testing.T) {
 	})
 
 	t.Run("nil", func(t *testing.T) {
-		cf := completable.CompletedFuture(nil).ThenAccept(func(s string) {
+		cf := queued.CompletedFuture(nil).ThenAccept(func(s string) {
 			if s != "" {
 				t.Fatal("not match")
 			}
@@ -38,7 +39,7 @@ func TestCompletedFuture(t *testing.T) {
 	})
 
 	t.Run("nil 2", func(t *testing.T) {
-		cf := completable.CompletedFuture(nil).ThenAccept(func(s *bool) {
+		cf := queued.CompletedFuture(nil).ThenAccept(func(s *bool) {
 			if s != nil {
 				t.Fatal("not match")
 			}
@@ -53,13 +54,13 @@ func TestCompletedFuture(t *testing.T) {
 func TestAllOf(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.AllOf(completable.SupplyAsync(func() int {
+		cf := queued.AllOf(queued.SupplyAsync(func() int {
 			time.Sleep(2 * time.Second)
 			return 1
-		}), completable.SupplyAsync(func() int {
+		}), queued.SupplyAsync(func() int {
 			time.Sleep(1 * time.Second)
 			return 1
-		}), completable.SupplyAsync(func() int {
+		}), queued.SupplyAsync(func() int {
 			time.Sleep(3 * time.Second)
 			return 1
 		}))
@@ -83,14 +84,14 @@ func TestAllOf(t *testing.T) {
 			}
 		}()
 		now := time.Now()
-		cf := completable.AllOf(completable.SupplyAsync(func() int {
+		cf := queued.AllOf(queued.SupplyAsync(func() int {
 			time.Sleep(2 * time.Second)
 			panic("error on 2")
 			return 1
-		}), completable.SupplyAsync(func() int {
+		}), queued.SupplyAsync(func() int {
 			time.Sleep(1 * time.Second)
 			return 1
-		}), completable.SupplyAsync(func() int {
+		}), queued.SupplyAsync(func() int {
 			time.Sleep(3 * time.Second)
 			return 1
 		}))
@@ -106,13 +107,13 @@ func TestAllOf(t *testing.T) {
 
 	//t.Run("normal cancel", func(t *testing.T) {
 	//	now := time.Now()
-	//	cf := completable.AllOf(completable.SupplyAsync(func() int {
+	//	cf := queued.AllOf(queued.SupplyAsync(func() int {
 	//		time.Sleep(2 * time.Second)
 	//		return 1
-	//	}), completable.SupplyAsync(func() int {
+	//	}), queued.SupplyAsync(func() int {
 	//		time.Sleep(1 * time.Second)
 	//		return 1
-	//	}), completable.SupplyAsync(func() int {
+	//	}), queued.SupplyAsync(func() int {
 	//		time.Sleep(3 * time.Second)
 	//		return 1
 	//	}))
@@ -134,13 +135,13 @@ func TestAllOf(t *testing.T) {
 func TestAnyOf(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.AnyOf(completable.SupplyAsync(func() int {
+		cf := queued.AnyOf(queued.SupplyAsync(func() int {
 			time.Sleep(2 * time.Second)
 			return 1
-		}), completable.SupplyAsync(func() int {
+		}), queued.SupplyAsync(func() int {
 			time.Sleep(1 * time.Second)
 			return 1
-		}), completable.SupplyAsync(func() int {
+		}), queued.SupplyAsync(func() int {
 			time.Sleep(3 * time.Second)
 			return 1
 		}))
@@ -164,15 +165,15 @@ func TestAnyOf(t *testing.T) {
 			}
 		}()
 		now := time.Now()
-		cf := completable.AnyOf(completable.SupplyAsync(func() int {
+		cf := queued.AnyOf(queued.SupplyAsync(func() int {
 			time.Sleep(2 * time.Second)
 			panic("2 second panic")
 			return 1
-		}), completable.SupplyAsync(func() int {
+		}), queued.SupplyAsync(func() int {
 			time.Sleep(1 * time.Second)
 			panic("1 second panic")
 			return 1
-		}), completable.SupplyAsync(func() int {
+		}), queued.SupplyAsync(func() int {
 			time.Sleep(3 * time.Second)
 			return 1
 		}))
@@ -188,13 +189,13 @@ func TestAnyOf(t *testing.T) {
 
 	//t.Run("cancel", func(t *testing.T) {
 	//	now := time.Now()
-	//	cf := completable.AnyOf(completable.SupplyAsync(func() int {
+	//	cf := queued.AnyOf(queued.SupplyAsync(func() int {
 	//		time.Sleep(2 * time.Second)
 	//		return 1
-	//	}), completable.SupplyAsync(func() int {
+	//	}), queued.SupplyAsync(func() int {
 	//		time.Sleep(1 * time.Second)
 	//		return 1
-	//	}), completable.SupplyAsync(func() int {
+	//	}), queued.SupplyAsync(func() int {
 	//		time.Sleep(3 * time.Second)
 	//		return 1
 	//	}))
@@ -216,7 +217,7 @@ func TestAnyOf(t *testing.T) {
 func TestRunAsync(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.RunAsync(func() {
+		cf := queued.RunAsync(func() {
 			time.Sleep(1 * time.Second)
 			t.Log(time.Now().Sub(now), "Hello World")
 		})
@@ -228,7 +229,7 @@ func TestRunAsync(t *testing.T) {
 
 	t.Run("with cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.RunAsync(func() {
+		cf := queued.RunAsync(func() {
 			time.Sleep(1 * time.Second)
 			t.Log(time.Now().Sub(now), "Hello World")
 		})
@@ -252,7 +253,7 @@ func TestRunAsync(t *testing.T) {
 func TestSupplyAsync(t *testing.T) {
 	t.Run("normal", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		})
@@ -279,7 +280,7 @@ func TestSupplyAsync(t *testing.T) {
 
 	t.Run("with cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		})
@@ -309,7 +310,7 @@ func TestSupplyAsync(t *testing.T) {
 func TestThenApply(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenApply(func(o string) string {
@@ -327,7 +328,7 @@ func TestThenApply(t *testing.T) {
 	})
 	t.Run("sync with cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -358,7 +359,7 @@ func TestThenApply(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenApplyAsync(func(o string) string {
@@ -377,7 +378,7 @@ func TestThenApply(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenApplyAsync(func(o string) string {
@@ -411,7 +412,7 @@ func TestThenApply(t *testing.T) {
 func TestThenAccept(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenAccept(func(o string) {
@@ -429,7 +430,7 @@ func TestThenAccept(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		})
@@ -460,7 +461,7 @@ func TestThenAccept(t *testing.T) {
 
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenAcceptAsync(func(o string) {
@@ -478,7 +479,7 @@ func TestThenAccept(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenAcceptAsync(func(o string) {
@@ -510,7 +511,7 @@ func TestThenAccept(t *testing.T) {
 func TestThenRun(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenRun(func() {
@@ -521,7 +522,7 @@ func TestThenRun(t *testing.T) {
 	})
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		})
@@ -545,7 +546,7 @@ func TestThenRun(t *testing.T) {
 	})
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenRunAsync(func() {
@@ -557,7 +558,7 @@ func TestThenRun(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello world"
 		}).ThenRunAsync(func() {
@@ -584,10 +585,10 @@ func TestThenCombine(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenCombine(completable.SupplyAsync(func() string {
+		}).ThenCombine(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) string {
@@ -605,7 +606,7 @@ func TestThenCombine(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -613,7 +614,7 @@ func TestThenCombine(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.ThenCombine(completable.SupplyAsync(func() string {
+		cf := origin.ThenCombine(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) string {
@@ -640,10 +641,10 @@ func TestThenCombine(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenCombineAsync(completable.SupplyAsync(func() string {
+		}).ThenCombineAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) string {
@@ -661,10 +662,10 @@ func TestThenCombine(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenCombineAsync(completable.SupplyAsync(func() string {
+		}).ThenCombineAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) string {
@@ -697,10 +698,10 @@ func TestAcceptBoth(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenAcceptBoth(completable.SupplyAsync(func() string {
+		}).ThenAcceptBoth(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) {
@@ -717,7 +718,7 @@ func TestAcceptBoth(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -725,7 +726,7 @@ func TestAcceptBoth(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.ThenAcceptBoth(completable.SupplyAsync(func() string {
+		cf := origin.ThenAcceptBoth(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) {
@@ -751,10 +752,10 @@ func TestAcceptBoth(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenAcceptBothAsync(completable.SupplyAsync(func() string {
+		}).ThenAcceptBothAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) {
@@ -771,10 +772,10 @@ func TestAcceptBoth(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ThenAcceptBothAsync(completable.SupplyAsync(func() string {
+		}).ThenAcceptBothAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s1, s2 string) {
@@ -806,10 +807,10 @@ func TestRunAfterBoth(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterBoth(completable.SupplyAsync(func() string {
+		}).RunAfterBoth(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -823,7 +824,7 @@ func TestRunAfterBoth(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -831,7 +832,7 @@ func TestRunAfterBoth(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.RunAfterBoth(completable.SupplyAsync(func() string {
+		cf := origin.RunAfterBoth(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -854,10 +855,10 @@ func TestRunAfterBoth(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterBothAsync(completable.SupplyAsync(func() string {
+		}).RunAfterBothAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -871,10 +872,10 @@ func TestRunAfterBoth(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterBothAsync(completable.SupplyAsync(func() string {
+		}).RunAfterBothAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -903,10 +904,10 @@ func TestApplyEither(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ApplyToEither(completable.SupplyAsync(func() string {
+		}).ApplyToEither(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) string {
@@ -921,7 +922,7 @@ func TestApplyEither(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -929,7 +930,7 @@ func TestApplyEither(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.ApplyToEither(completable.SupplyAsync(func() string {
+		cf := origin.ApplyToEither(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) string {
@@ -953,10 +954,10 @@ func TestApplyEither(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ApplyToEitherAsync(completable.SupplyAsync(func() string {
+		}).ApplyToEitherAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) string {
@@ -971,10 +972,10 @@ func TestApplyEither(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).ApplyToEitherAsync(completable.SupplyAsync(func() string {
+		}).ApplyToEitherAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) string {
@@ -1004,10 +1005,10 @@ func TestAcceptEither(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).AcceptEither(completable.SupplyAsync(func() string {
+		}).AcceptEither(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) {
@@ -1023,7 +1024,7 @@ func TestAcceptEither(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1031,7 +1032,7 @@ func TestAcceptEither(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.AcceptEither(completable.SupplyAsync(func() string {
+		cf := origin.AcceptEither(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) {
@@ -1056,10 +1057,10 @@ func TestAcceptEither(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).AcceptEitherAsync(completable.SupplyAsync(func() string {
+		}).AcceptEitherAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) {
@@ -1075,10 +1076,10 @@ func TestAcceptEither(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).AcceptEitherAsync(completable.SupplyAsync(func() string {
+		}).AcceptEitherAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func(s string) {
@@ -1109,10 +1110,10 @@ func TestRunEither(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterEither(completable.SupplyAsync(func() string {
+		}).RunAfterEither(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -1130,7 +1131,7 @@ func TestRunEither(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1138,7 +1139,7 @@ func TestRunEither(t *testing.T) {
 			time.Sleep(200 * time.Millisecond)
 			origin.Cancel()
 		}()
-		cf := origin.RunAfterEither(completable.SupplyAsync(func() string {
+		cf := origin.RunAfterEither(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -1164,10 +1165,10 @@ func TestRunEither(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterEitherAsync(completable.SupplyAsync(func() string {
+		}).RunAfterEitherAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -1184,10 +1185,10 @@ func TestRunEither(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
-		}).RunAfterEitherAsync(completable.SupplyAsync(func() string {
+		}).RunAfterEitherAsync(queued.SupplyAsync(func() string {
 			time.Sleep(2 * time.Second)
 			return " world"
 		}), func() {
@@ -1219,7 +1220,7 @@ func TestCompose(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenCompose(func(s string) completable.CompletionStage {
@@ -1227,7 +1228,7 @@ func TestCompose(t *testing.T) {
 			if s != "Hello" {
 				t.Fatal("not match")
 			}
-			return completable.SupplyAsync(func() string {
+			return queued.SupplyAsync(func() string {
 				return "world"
 			})
 		})
@@ -1240,7 +1241,7 @@ func TestCompose(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1253,7 +1254,7 @@ func TestCompose(t *testing.T) {
 			if s != "Hello" {
 				t.Fatal("not match")
 			}
-			return completable.SupplyAsync(func() string {
+			return queued.SupplyAsync(func() string {
 				return "world"
 			})
 		})
@@ -1275,7 +1276,7 @@ func TestCompose(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenComposeAsync(func(s string) completable.CompletionStage {
@@ -1283,7 +1284,7 @@ func TestCompose(t *testing.T) {
 			if s != "Hello" {
 				t.Fatal("not match")
 			}
-			return completable.SupplyAsync(func() string {
+			return queued.SupplyAsync(func() string {
 				return "world"
 			})
 		})
@@ -1296,7 +1297,7 @@ func TestCompose(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).ThenComposeAsync(func(s string) completable.CompletionStage {
@@ -1304,7 +1305,7 @@ func TestCompose(t *testing.T) {
 			if s != "Hello" {
 				t.Fatal("not match")
 			}
-			return completable.SupplyAsync(func() string {
+			return queued.SupplyAsync(func() string {
 				return "world"
 			})
 		})
@@ -1332,7 +1333,7 @@ func TestExceptionally(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error!")
 			return "Hello"
@@ -1349,7 +1350,7 @@ func TestExceptionally(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error!")
 			return "Hello"
@@ -1380,7 +1381,7 @@ func TestExceptionally(t *testing.T) {
 	t.Run("sync no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).Exceptionally(func(o interface{}) string {
@@ -1396,7 +1397,7 @@ func TestExceptionally(t *testing.T) {
 
 	t.Run("sync no panic cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1428,7 +1429,7 @@ func TestWhenComplete(t *testing.T) {
 	t.Run("sync", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1444,7 +1445,7 @@ func TestWhenComplete(t *testing.T) {
 
 	t.Run("sync cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1475,7 +1476,7 @@ func TestWhenComplete(t *testing.T) {
 	t.Run("sync no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).WhenComplete(func(s string, panic interface{}) {
@@ -1490,7 +1491,7 @@ func TestWhenComplete(t *testing.T) {
 
 	t.Run("sync no panic cancel", func(t *testing.T) {
 		now := time.Now()
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1520,7 +1521,7 @@ func TestWhenComplete(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1536,7 +1537,7 @@ func TestWhenComplete(t *testing.T) {
 
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1565,7 +1566,7 @@ func TestWhenComplete(t *testing.T) {
 	t.Run("async no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := ""
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).WhenCompleteAsync(func(s string, panic interface{}) {
@@ -1580,7 +1581,7 @@ func TestWhenComplete(t *testing.T) {
 
 	t.Run("async no panic cancel", func(t *testing.T) {
 		now := time.Now()
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).WhenCompleteAsync(func(s string, panic interface{}) {
@@ -1610,7 +1611,7 @@ func TestHandle(t *testing.T) {
 	t.Run("sync panic", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1637,7 +1638,7 @@ func TestHandle(t *testing.T) {
 	t.Run("sync panic cancel", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1676,7 +1677,7 @@ func TestHandle(t *testing.T) {
 	t.Run("sync no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).Handle(func(s string, panic interface{}) int {
@@ -1702,7 +1703,7 @@ func TestHandle(t *testing.T) {
 	t.Run("sync no panic cancel", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		origin := completable.SupplyAsync(func() string {
+		origin := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1740,7 +1741,7 @@ func TestHandle(t *testing.T) {
 	t.Run("async", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1767,7 +1768,7 @@ func TestHandle(t *testing.T) {
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1805,7 +1806,7 @@ func TestHandle(t *testing.T) {
 	t.Run("async no panic", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).HandleAsync(func(s string, panic interface{}) int {
@@ -1831,7 +1832,7 @@ func TestHandle(t *testing.T) {
 	t.Run("async no panic cancel", func(t *testing.T) {
 		now := time.Now()
 		ret := 0
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		}).HandleAsync(func(s string, panic interface{}) int {
@@ -1871,7 +1872,7 @@ func TestComplete(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -1904,7 +1905,7 @@ func TestComplete(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -1936,7 +1937,7 @@ func TestComplete(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			fmt.Println("done1")
 			panic("error")
@@ -1945,7 +1946,10 @@ func TestComplete(t *testing.T) {
 		go func() {
 			time.Sleep(200 * time.Millisecond)
 			fmt.Println("done2")
-			cf.Complete("complete")
+			err := cf.Complete("complete")
+			if err != nil {
+				t.Fatal(err)
+			}
 		}()
 		cf2 := cf.HandleAsync(func(s string, panic interface{}) int {
 			t.Log(panic)
@@ -1971,7 +1975,7 @@ func TestComplete(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			fmt.Println("done1")
 			return "Hello"
@@ -2007,7 +2011,7 @@ func TestCompleteExceptionally(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -2040,7 +2044,7 @@ func TestCompleteExceptionally(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})
@@ -2072,7 +2076,7 @@ func TestCompleteExceptionally(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			panic("error")
 			return "Hello"
@@ -2105,7 +2109,7 @@ func TestCompleteExceptionally(t *testing.T) {
 		now := time.Now()
 		ret := 0
 
-		cf := completable.SupplyAsync(func() string {
+		cf := queued.SupplyAsync(func() string {
 			time.Sleep(1 * time.Second)
 			return "Hello"
 		})

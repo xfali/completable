@@ -12,6 +12,7 @@ import (
 	"github.com/xfali/completable"
 	"github.com/xfali/executor"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -97,6 +98,11 @@ const (
 	TypeHandleAsync
 )
 
+const (
+	statusNormal = iota
+	statusCancel
+)
+
 type stage struct {
 	other    completable.CompletionStage
 	value    interface{}
@@ -107,18 +113,27 @@ type stage struct {
 
 type queuedCompletableFuture struct {
 	origin completable.CompletionStage
+	result completable.CompletionStage
 
 	queueLocker sync.Mutex
 	queue       *list.List
 
-	once sync.Once
+	status int32
+	once   sync.Once
+
+	interrupter interrupter
+	interLocker sync.Mutex
 }
+
+type interrupter func(c completable.CompletionStage) bool
 
 func (cf *queuedCompletableFuture) enqueue(stage *stage) {
 	cf.queueLocker.Lock()
 	defer cf.queueLocker.Unlock()
 
-	cf.queue.PushBack(stage)
+	if atomic.LoadInt32(&cf.status) == statusNormal {
+		cf.queue.PushBack(stage)
+	}
 }
 
 // 当阶段正常完成时执行参数函数：进行类型变换
@@ -482,23 +497,40 @@ func (cf *queuedCompletableFuture) HandleAsync(f interface{}, executor ...execut
 
 // 给予get的值并正常结束
 func (cf *queuedCompletableFuture) Complete(v interface{}) error {
-	return cf.join().Complete(v)
+	cf.setInterrupter(func(c completable.CompletionStage) bool {
+		c.Complete(v)
+		return true
+	})
+	return cf.origin.Complete(v)
 }
 
 // 发送panic，异常结束
-func (cf *queuedCompletableFuture) CompleteExceptionally(v interface{}) {
-	cf.join().CompleteExceptionally(v)
+func (cf *queuedCompletableFuture) CompleteExceptionally(v interface{}) error {
+	cf.setInterrupter(func(c completable.CompletionStage) bool {
+		c.CompleteExceptionally(v)
+		return true
+	})
+	return cf.origin.CompleteExceptionally(v)
 }
 
 // 取消并打断stage链，退出任务
 // 如果任务已完成返回false，成功取消返回true
 func (cf *queuedCompletableFuture) Cancel() bool {
-	return cf.join().Cancel()
+	cf.changeStatus(statusCancel)
+	cf.setInterrupter(func(c completable.CompletionStage) bool {
+		c.Cancel()
+		return true
+	})
+	return cf.origin.Cancel()
+}
+
+func (cf *queuedCompletableFuture) changeStatus(status int32) {
+	atomic.StoreInt32(&cf.status, status)
 }
 
 // 是否在完成前被取消
 func (cf *queuedCompletableFuture) IsCancelled() bool {
-	return cf.join().Cancel()
+	return cf.origin.IsCancelled()
 }
 
 // 是否任务完成
@@ -573,9 +605,9 @@ func (cf *queuedCompletableFuture) JoinCompletionStage(ctx context.Context) comp
 
 func (cf *queuedCompletableFuture) join() completable.CompletionStage {
 	cf.once.Do(func() {
-		cf.origin = cf.convertOrigin()
+		cf.result = cf.convertOrigin()
 	})
-	return cf.origin
+	return cf.result
 }
 
 func (cf *queuedCompletableFuture) chooseExecutor(executor ...executor.Executor) executor.Executor {
@@ -602,6 +634,20 @@ func toQueued(completable completable.CompletionStage) *queuedCompletableFuture 
 	panic("expect queuedCompletableFuture, not match")
 }
 
+func (cf *queuedCompletableFuture) setInterrupter(interrupter interrupter) {
+	cf.interLocker.Lock()
+	defer cf.interLocker.Unlock()
+
+	cf.interrupter = interrupter
+}
+
+func (cf *queuedCompletableFuture) getInterrupter() interrupter {
+	cf.interLocker.Lock()
+	defer cf.interLocker.Unlock()
+
+	return cf.interrupter
+}
+
 func runStage(completable completable.CompletionStage) completable.CompletionStage {
 	if v, ok := completable.(*queuedCompletableFuture); ok {
 		return v.convertOrigin()
@@ -615,6 +661,10 @@ func (cf *queuedCompletableFuture) convertOrigin() completable.CompletionStage {
 
 	cur := cf.origin
 	for elem := cf.queue.Front(); elem != nil; elem = elem.Next() {
+		inter := cf.getInterrupter()
+		if inter != nil {
+			inter(cur)
+		}
 		stage := elem.Value.(*stage)
 		switch stage.cfType {
 		case TypeThenApply:

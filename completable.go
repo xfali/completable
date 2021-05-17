@@ -10,5 +10,5 @@ type Completable interface {
 	Complete(v interface{}) error
 
 	// 发送panic，异常结束
-	CompleteExceptionally(v interface{})
+	CompleteExceptionally(v interface{}) error
 }

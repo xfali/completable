@@ -8,6 +8,7 @@ package completable
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"reflect"
 	"runtime"
@@ -202,7 +203,7 @@ func (vh *defaultValueHandler) SetValueOrError(v ValueOrError) error {
 
 func (vh *defaultValueHandler) SetValue(v reflect.Value) error {
 	if v.Type() != vh.t {
-		return errors.New("Type not match. ")
+		return fmt.Errorf("Type not match. expect: %s get %s . ", vh.t.String(), v.Type().String())
 	}
 	if atomic.CompareAndSwapInt32(&vh.status, valueHandlerNone, valueHandlerNormal) {
 		if len(vh.valueChan) == 0 {

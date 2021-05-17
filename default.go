@@ -1099,8 +1099,9 @@ func (cf *defaultCompletableFuture) Complete(v interface{}) error {
 }
 
 // 发送panic，异常结束
-func (cf *defaultCompletableFuture) CompleteExceptionally(v interface{}) {
+func (cf *defaultCompletableFuture) CompleteExceptionally(v interface{}) error {
 	cf.v.SetPanic(v)
+	return nil
 }
 
 // 取消并打断stage链，退出任务
@@ -1215,11 +1216,11 @@ func convert(stage CompletionStage) *defaultCompletableFuture {
 }
 
 func (cf *defaultCompletableFuture) chooseExecutor(executor ...executor.Executor) executor.Executor {
-	if len(executor) == 0 {
-		return defaultExecutor
-	} else {
-		return executor[0]
+	ret := defaultExecutor
+	if len(executor) > 0 && executor[0] != nil {
+		ret = executor[0]
 	}
+	return ret
 }
 
 func chooseExecutor(executor ...executor.Executor) executor.Executor {
