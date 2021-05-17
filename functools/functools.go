@@ -57,6 +57,16 @@ func CheckAcceptFunction(fn reflect.Type, vType reflect.Type) error {
 	return nil
 }
 
+func CheckRunnableFunction(fn reflect.Type) error {
+	if fn.Kind() != reflect.Func {
+		return errors.New("Param is not a function. ")
+	}
+	if fn.NumIn() != 0 || fn.NumOut() != 0 {
+		return errors.New("Type must be f func() . Function must be 0 In 0 Out. ")
+	}
+	return nil
+}
+
 func CheckCombineFunction(fn reflect.Type, vType1, vType2 reflect.Type) error {
 	if fn.Kind() != reflect.Func {
 		return errors.New("Param is not a function. ")
@@ -159,6 +169,10 @@ func RunAccept(fn reflect.Value, v reflect.Value) {
 		v = reflect.Zero(fn.Type().In(0))
 	}
 	fn.Call([]reflect.Value{v})
+}
+
+func RunRunnable(fn reflect.Value) {
+	fn.Call(nil)
 }
 
 func RunCombine(fn reflect.Value, v1, v2 reflect.Value) reflect.Value {

@@ -211,9 +211,14 @@ func (cf *defaultCompletableFuture) ThenAcceptAsync(acceptFunc interface{}, exec
 // 当阶段正常完成时执行参数函数：不关心上一步结果
 // Param：参数函数: f func()
 // Return：新的CompletionStage
-func (cf *defaultCompletableFuture) ThenRun(runnable func()) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenRun(runnable interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	cf.checkValue()
+
+	fnValue := reflect.ValueOf(runnable)
+	if err := functools.CheckRunnableFunction(fnValue.Type()); err != nil {
+		panic(err)
+	}
 
 	vh := NewSyncHandler(functools.NilType)
 	ctx, _ := context.WithCancel(cf.ctx)
@@ -225,7 +230,7 @@ func (cf *defaultCompletableFuture) ThenRun(runnable func()) (retCf CompletionSt
 		return
 	}
 
-	runnable()
+	functools.RunRunnable(fnValue)
 	vh.SetValue(functools.NilValue)
 	return
 }
@@ -234,9 +239,13 @@ func (cf *defaultCompletableFuture) ThenRun(runnable func()) (retCf CompletionSt
 // Param：参数函数: f func()
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *defaultCompletableFuture) ThenRunAsync(runnable func(), executor ...executor.Executor) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) ThenRunAsync(runnable interface{}, executor ...executor.Executor) (retCf CompletionStage) {
 	cf.checkValue()
 
+	fnValue := reflect.ValueOf(runnable)
+	if err := functools.CheckRunnableFunction(fnValue.Type()); err != nil {
+		panic(err)
+	}
 	vh := NewAsyncHandler(functools.NilType)
 	ctx, _ := context.WithCancel(cf.ctx)
 	retCf = newCfWithCancel(ctx, cf.cancelFunc, vh)
@@ -249,7 +258,7 @@ func (cf *defaultCompletableFuture) ThenRunAsync(runnable func(), executor ...ex
 			vh.SetValueOrError(ve.Clone())
 			return
 		}
-		runnable()
+		functools.RunRunnable(fnValue)
 		vh.SetValue(functools.NilValue)
 	})
 	if err != nil {
@@ -445,11 +454,16 @@ func (cf *defaultCompletableFuture) ThenAcceptBothAsync(
 // Param：other，当该CompletionStage也完成后执行参数函数
 // Param：参数函数 runnable func()
 // Return：新的CompletionStage
-func (cf *defaultCompletableFuture) RunAfterBoth(other CompletionStage, runnable func()) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) RunAfterBoth(other CompletionStage, runnable interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
 	ocf.checkValue()
+
+	fnValue := reflect.ValueOf(runnable)
+	if err := functools.CheckRunnableFunction(fnValue.Type()); err != nil {
+		panic(err)
+	}
 
 	octx, _ := context.WithCancel(cf.ctx)
 
@@ -468,7 +482,8 @@ func (cf *defaultCompletableFuture) RunAfterBoth(other CompletionStage, runnable
 		vh.SetValueOrError(ve2.Clone())
 		return
 	}
-	runnable()
+	functools.RunRunnable(fnValue)
+
 	vh.SetValue(functools.NilValue)
 
 	return
@@ -481,11 +496,16 @@ func (cf *defaultCompletableFuture) RunAfterBoth(other CompletionStage, runnable
 // Return：新的CompletionStage
 func (cf *defaultCompletableFuture) RunAfterBothAsync(
 	other CompletionStage,
-	runnable func(),
+	runnable interface{},
 	executor ...executor.Executor) (retCf CompletionStage) {
 	ocf := convert(other)
 	cf.checkValue()
 	ocf.checkValue()
+
+	fnValue := reflect.ValueOf(runnable)
+	if err := functools.CheckRunnableFunction(fnValue.Type()); err != nil {
+		panic(err)
+	}
 
 	octx, _ := context.WithCancel(cf.ctx)
 
@@ -508,7 +528,7 @@ func (cf *defaultCompletableFuture) RunAfterBothAsync(
 			vh.SetValueOrError(ve2.Clone())
 			return
 		}
-		runnable()
+		functools.RunRunnable(fnValue)
 		vh.SetValue(functools.NilValue)
 	})
 	if err != nil {
@@ -693,13 +713,17 @@ func (cf *defaultCompletableFuture) AcceptEitherAsync(
 // Param：other，与该CompletionStage比较，任意一个完成则执行操作，注意两个CompletionStage的返回结果类型必须相同
 // Param：参数函数
 // Return：新的CompletionStage
-func (cf *defaultCompletableFuture) RunAfterEither(other CompletionStage, runnable func()) (retCf CompletionStage) {
+func (cf *defaultCompletableFuture) RunAfterEither(other CompletionStage, runnable interface{}) (retCf CompletionStage) {
 	defer cf.setDone()
 	ocf := convert(other)
 	cf.checkValue()
 	ocf.checkValue()
 	cf.checkSameType(ocf)
 
+	fnValue := reflect.ValueOf(runnable)
+	if err := functools.CheckRunnableFunction(fnValue.Type()); err != nil {
+		panic(err)
+	}
 	octx, _ := context.WithCancel(cf.ctx)
 
 	vh := NewSyncHandler(functools.NilType)
@@ -714,7 +738,7 @@ func (cf *defaultCompletableFuture) RunAfterEither(other CompletionStage, runnab
 		return
 	}
 
-	runnable()
+	functools.RunRunnable(fnValue)
 	err := vh.SetValue(functools.NilValue)
 	if err != nil {
 		vh.SetPanic(err)
@@ -729,13 +753,17 @@ func (cf *defaultCompletableFuture) RunAfterEither(other CompletionStage, runnab
 // Return：新的CompletionStage
 func (cf *defaultCompletableFuture) RunAfterEitherAsync(
 	other CompletionStage,
-	runnable func(),
+	runnable interface{},
 	executor ...executor.Executor) (retCf CompletionStage) {
 	ocf := convert(other)
 	cf.checkValue()
 	ocf.checkValue()
 	cf.checkSameType(ocf)
 
+	fnValue := reflect.ValueOf(runnable)
+	if err := functools.CheckRunnableFunction(fnValue.Type()); err != nil {
+		panic(err)
+	}
 	octx, _ := context.WithCancel(cf.ctx)
 
 	vh := NewAsyncHandler(functools.NilType)
@@ -753,7 +781,7 @@ func (cf *defaultCompletableFuture) RunAfterEitherAsync(
 			return
 		}
 
-		runnable()
+		functools.RunRunnable(fnValue)
 		err := vh.SetValue(functools.NilValue)
 		if err != nil {
 			vh.SetPanic(err)

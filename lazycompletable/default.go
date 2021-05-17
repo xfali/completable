@@ -10,6 +10,7 @@ import (
 	"errors"
 	"github.com/xfali/completable"
 	"github.com/xfali/executor"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -83,7 +84,7 @@ func (cf *lazyCompletableFuture) ThenAcceptAsync(acceptFunc interface{}, executo
 // 当阶段正常完成时执行参数函数：不关心上一步结果
 // Param：参数函数: f func()
 // Return：新的CompletionStage
-func (cf *lazyCompletableFuture) ThenRun(runnable func()) completable.CompletionStage {
+func (cf *lazyCompletableFuture) ThenRun(runnable interface{}) completable.CompletionStage {
 	ret := &lazyCompletableFuture{
 		fn: func(origin completable.CompletionStage) completable.CompletionStage {
 			return origin.ThenRun(runnable)
@@ -98,7 +99,7 @@ func (cf *lazyCompletableFuture) ThenRun(runnable func()) completable.Completion
 // Param：参数函数: f func()
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *lazyCompletableFuture) ThenRunAsync(runnable func(), executor ...executor.Executor) completable.CompletionStage {
+func (cf *lazyCompletableFuture) ThenRunAsync(runnable interface{}, executor ...executor.Executor) completable.CompletionStage {
 	ret := &lazyCompletableFuture{
 		fn: func(origin completable.CompletionStage) completable.CompletionStage {
 			return origin.ThenRunAsync(runnable, executor...)
@@ -180,7 +181,7 @@ func (cf *lazyCompletableFuture) ThenAcceptBothAsync(
 // Param：other，当该CompletionStage也完成后执行参数函数
 // Param：参数函数 runnable func()
 // Return：新的CompletionStage
-func (cf *lazyCompletableFuture) RunAfterBoth(other completable.CompletionStage, runnable func()) completable.CompletionStage {
+func (cf *lazyCompletableFuture) RunAfterBoth(other completable.CompletionStage, runnable interface{}) completable.CompletionStage {
 	ret := &lazyCompletableFuture{
 		fn: func(origin completable.CompletionStage) completable.CompletionStage {
 			other = joinOriginCompletableStage(other)
@@ -197,7 +198,7 @@ func (cf *lazyCompletableFuture) RunAfterBoth(other completable.CompletionStage,
 // Param：参数函数 runnable func()
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *lazyCompletableFuture) RunAfterBothAsync(other completable.CompletionStage, runnable func(), executor ...executor.Executor) completable.CompletionStage {
+func (cf *lazyCompletableFuture) RunAfterBothAsync(other completable.CompletionStage, runnable interface{}, executor ...executor.Executor) completable.CompletionStage {
 	ret := &lazyCompletableFuture{
 		fn: func(origin completable.CompletionStage) completable.CompletionStage {
 			other = joinOriginCompletableStage(other)
@@ -279,11 +280,11 @@ func (cf *lazyCompletableFuture) AcceptEitherAsync(other completable.CompletionS
 // Param：other，与该CompletionStage比较，任意一个完成则执行操作，注意两个CompletionStage的返回结果类型必须相同
 // Param：参数函数
 // Return：新的CompletionStage
-func (cf *lazyCompletableFuture) RunAfterEither(other completable.CompletionStage, f func()) completable.CompletionStage {
+func (cf *lazyCompletableFuture) RunAfterEither(other completable.CompletionStage, runnable interface{}) completable.CompletionStage {
 	ret := &lazyCompletableFuture{
 		fn: func(origin completable.CompletionStage) completable.CompletionStage {
 			other = joinOriginCompletableStage(other)
-			return origin.RunAfterEither(other, f)
+			return origin.RunAfterEither(other, runnable)
 		},
 	}
 	ret.header = cf.header
@@ -296,11 +297,11 @@ func (cf *lazyCompletableFuture) RunAfterEither(other completable.CompletionStag
 // Param：参数函数
 // Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 // Return：新的CompletionStage
-func (cf *lazyCompletableFuture) RunAfterEitherAsync(other completable.CompletionStage, f func(), executor ...executor.Executor) completable.CompletionStage {
+func (cf *lazyCompletableFuture) RunAfterEitherAsync(other completable.CompletionStage, runnable interface{}, executor ...executor.Executor) completable.CompletionStage {
 	ret := &lazyCompletableFuture{
 		fn: func(origin completable.CompletionStage) completable.CompletionStage {
 			other = joinOriginCompletableStage(other)
-			return origin.RunAfterEitherAsync(other, f, executor...)
+			return origin.RunAfterEitherAsync(other, runnable, executor...)
 		},
 	}
 	ret.header = cf.header
@@ -588,6 +589,9 @@ func AllOf(cfs ...completable.CompletionStage) (retCf completable.CompletionStag
 }
 
 func AnyOf(cfs ...completable.CompletionStage) (retCf completable.CompletionStage) {
+	if len(cfs) == 0 {
+		return nil
+	}
 	ret := &lazyCompletableFuture{
 		fn: func(origin completable.CompletionStage) completable.CompletionStage {
 			origins := make([]completable.CompletionStage, len(cfs))
@@ -607,4 +611,42 @@ func AnyOf(cfs ...completable.CompletionStage) (retCf completable.CompletionStag
 
 func (cf *lazyCompletableFuture) JoinCompletionStage(ctx context.Context) completable.CompletionStage {
 	return cf.join()
+}
+
+func runAny(vhs ...completable.CompletionStage) ([]chan completable.CompletionStage, error) {
+	channels := make([]chan completable.CompletionStage, len(vhs))
+	for i, c := range vhs {
+		ch := make(chan completable.CompletionStage)
+		cs := c
+		channels[i] = ch
+		go func() {
+			ch <- cs.(*lazyCompletableFuture).join()
+		}()
+	}
+	return channels, nil
+}
+
+func anyOfCompletionStage(ctx context.Context, vhs ...chan completable.CompletionStage) (int, completable.CompletionStage) {
+	size := len(vhs)
+	if ctx != nil {
+		size++
+	}
+	selectCases := make([]reflect.SelectCase, size)
+	if ctx != nil {
+		selectCases[len(vhs)] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(ctx.Done()),
+		}
+	}
+	for i, vh := range vhs {
+		selectCases[i] = reflect.SelectCase{
+			Dir:  reflect.SelectRecv,
+			Chan: reflect.ValueOf(vh),
+		}
+	}
+	index, value, _ := reflect.Select(selectCases)
+	if index == len(vhs) {
+		return index, nil
+	}
+	return index, value.Interface().(completable.CompletionStage)
 }

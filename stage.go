@@ -31,13 +31,13 @@ type CompletionStage interface {
 	// 当阶段正常完成时执行参数函数：不关心上一步结果
 	// Param：参数函数: f func()
 	// Return：新的CompletionStage
-	ThenRun(runnable func()) CompletionStage
+	ThenRun(runnable interface{}) CompletionStage
 
 	// 当阶段正常完成时执行参数函数：不关心上一步结果
 	// Param：参数函数: f func()
 	// Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 	// Return：新的CompletionStage
-	ThenRunAsync(runnable func(), executor ...executor.Executor) CompletionStage
+	ThenRunAsync(runnable interface{}, executor ...executor.Executor) CompletionStage
 
 	// 当阶段正常完成时执行参数函数：结合两个CompletionStage的结果，转化后返回
 	// Param：other，当该CompletionStage也返回后进行结合转化
@@ -69,14 +69,14 @@ type CompletionStage interface {
 	// Param：other，当该CompletionStage也完成后执行参数函数
 	// Param：参数函数 runnable func()
 	// Return：新的CompletionStage
-	RunAfterBoth(other CompletionStage, runnable func()) CompletionStage
+	RunAfterBoth(other CompletionStage, runnable interface{}) CompletionStage
 
 	// 当阶段正常完成时执行参数函数：两个CompletionStage都完成后执行
 	// Param：other，当该CompletionStage也完成后执行参数函数
 	// Param：参数函数 runnable func()
 	// Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 	// Return：新的CompletionStage
-	RunAfterBothAsync(other CompletionStage, runnable func(), executor ...executor.Executor) CompletionStage
+	RunAfterBothAsync(other CompletionStage, runnable interface{}, executor ...executor.Executor) CompletionStage
 
 	// 当阶段正常完成时执行参数函数：两个CompletionStage使用先完成的结果进行转化
 	// Param：other，与该CompletionStage比较，用先完成的结果进行转化，注意两个CompletionStage的返回结果类型必须相同
@@ -108,14 +108,14 @@ type CompletionStage interface {
 	// Param：other，与该CompletionStage比较，任意一个完成则执行操作，注意两个CompletionStage的返回结果类型必须相同
 	// Param：参数函数
 	// Return：新的CompletionStage
-	RunAfterEither(other CompletionStage, f func()) CompletionStage
+	RunAfterEither(other CompletionStage, f interface{}) CompletionStage
 
 	// 当阶段正常完成时执行参数函数：两个CompletionStage任意一个完成则执行操作
 	// Param：other，与该CompletionStage比较，任意一个完成则执行操作，注意两个CompletionStage的返回结果类型必须相同
 	// Param：参数函数
 	// Param：Executor: 异步执行的协程池，如果不填则使用内置默认协程池
 	// Return：新的CompletionStage
-	RunAfterEitherAsync(other CompletionStage, f func(), executor ...executor.Executor) CompletionStage
+	RunAfterEitherAsync(other CompletionStage, f interface{}, executor ...executor.Executor) CompletionStage
 
 	// 当阶段正常完成时执行参数函数：使用上一阶段结果转化为新的CompletionStage
 	// Param：参数函数，f func(o TYPE) CompletionStage 参数：上一阶段结果，返回新的CompletionStage
