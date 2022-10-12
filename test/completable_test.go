@@ -1294,6 +1294,28 @@ func TestCompose(t *testing.T) {
 		}
 	})
 
+	t.Run("async call other", func(t *testing.T) {
+		now := time.Now()
+		ret := ""
+		completable.SupplyAsync(func() string {
+			time.Sleep(1 * time.Second)
+			return "Hello"
+		}).ThenComposeAsync(func(s string) completable.CompletionStage {
+			t.Log(s)
+			if s != "Hello" {
+				t.Fatal("not match")
+			}
+			return completable.SupplyAsync(func() string {
+				return "world"
+			})
+		}).ThenAccept(func(s string) {
+			t.Log(time.Now().Sub(now), ret)
+			if s != "world" {
+				t.Fatalf("not match, expect world but get %s", s)
+			}
+		}).Get(nil)
+	})
+
 	t.Run("async cancel", func(t *testing.T) {
 		now := time.Now()
 		cf := completable.SupplyAsync(func() string {

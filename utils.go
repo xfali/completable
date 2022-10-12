@@ -30,8 +30,9 @@ func selectChannels(ctx context.Context, vhs ...CompletionStage) (channels []cha
 		ch := make(chan CompletionStage)
 		cs := c
 		channels[i] = ch
-		go func(ep *error) {
-			if joinable, ok := cs.(Joinable); ok {
+
+		if joinable, ok := cs.(Joinable); ok {
+			go func(ep *error) {
 				origin := joinable.JoinCompletionStage(ctx)
 				// Get maybe panic, ignore it and return the CompletionStage
 				defer func(ep *error, ret CompletionStage) {
@@ -45,8 +46,9 @@ func selectChannels(ctx context.Context, vhs ...CompletionStage) (channels []cha
 					ch <- origin
 				}(ep, origin)
 				origin.Get(nil)
-			}
-		}(&err)
+			}(&err)
+		}
+
 	}
 	return channels, nil
 }
